@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Robot - Tạo Đề Thông Minh</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-solid fa-robot"></i></div>
+            <div class="brand-text">
+                <h2>AI ROBOT</h2>
+                <p>Tạo đề thông minh</p>
+            </div>
+        </div>
+        
+        <ul class="menu-list">
+            <li class="menu-item active" onclick="switchPage('page-dashboard', this)"><i class="fa-solid fa-house"></i> Trang chủ</li>
+            <li class="menu-item" onclick="switchPage('page-dashboard', this)"><i class="fa-solid fa-pen-to-square"></i> Tạo đề mới</li>
+            <li class="menu-item" onclick="switchPage('page-questions', this)"><i class="fa-solid fa-database"></i> Ngân hàng câu hỏi</li>
+            <li class="menu-item" onclick="switchPage('page-exams', this)"><i class="fa-solid fa-file-lines"></i> Đề của tôi</li>
+            <li class="menu-item" onclick="switchPage('page-classes', this)"><i class="fa-solid fa-users-rectangle"></i> Quản lý lớp học</li>
+            <li class="menu-item" onclick="switchPage('page-results', this)"><i class="fa-solid fa-list-check"></i> Xem kết quả</li>
+            <li class="menu-item" onclick="switchPage('page-settings', this)"><i class="fa-brands fa-google"></i> Google Sheets</li>
+        </ul>
+
+        <div class="sidebar-bot">
+            <i class="fa-solid fa-robot fa-3x" style="color:var(--primary); margin-bottom:10px;"></i>
+            <h4>AI Robot luôn sẵn sàng</h4>
+            <p>Tôi có thể giúp gì cho bạn?</p>
+            <button class="btn-outline-primary" onclick="toggleChatbot()">Chat với Robot</button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-wrapper">
+        <!-- Header Chung -->
+        <div class="top-header">
+            <div class="header-titles">
+                <h1>Xin chào, <span id="headerUserName">Trương Thái Hòa</span> <span style="color:#fdcb6e">👋</span></h1>
+                <p>Robot AI giúp bạn tạo đề kiểm tra trắc nghiệm nhanh chóng và thông minh!</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-upgrade"><i class="fa-solid fa-crown"></i> Nâng cấp tài khoản</button>
+                <div class="icon-btn"><i class="fa-regular fa-bell"></i></div>
+                <div class="user-profile" style="cursor: pointer;" onclick="openLoginModal()">
+                    <div class="icon-btn" style="background:#a29bfe; color:white; border:none;"><i class="fa-solid fa-user"></i></div>
+                    <div class="user-info">
+                        <h4 id="profileUserName">Trương Thái Hòa</h4>
+                        <p>Tài khoản Pro</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE: DASHBOARD ================= -->
+        <div id="page-dashboard" class="page-content active">
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon purple"><i class="fa-solid fa-file-invoice"></i></div>
+                    <div class="stat-info"><p>Đề đã tạo</p><h3 id="statTotalExams">0</h3></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><i class="fa-solid fa-database"></i></div>
+                    <div class="stat-info"><p>Câu hỏi</p><h3 id="statTotalQuestions">0</h3></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon blue"><i class="fa-solid fa-users"></i></div>
+                    <div class="stat-info"><p>Học sinh</p><h3>-</h3></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                    <div class="stat-info"><p>Lượt làm bài</p><h3>-</h3></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red"><i class="fa-solid fa-bullseye"></i></div>
+                    <div class="stat-info"><p>Điểm trung bình</p><h3>-<span style="font-size:14px;color:var(--text-muted)">/10</span></h3></div>
+                </div>
+            </div>
+
+            <!-- Form Tạo Đề -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-pen-nib"></i> Tạo đề mới</div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label>Môn học</label>
+                            <select id="subject" class="form-control">
+                                <option>Toán học</option><option>Ngữ Văn</option><option>Tiếng Anh</option>
+                                <option>Vật lý</option><option>Hóa học</option><option>Sinh học</option>
+                                <option>Lịch sử</option><option>Địa lý</option><option selected>Tin học</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Lớp áp dụng</label>
+                            <input type="text" id="grade" class="form-control" placeholder="Ví dụ: 6A1, 6A2">
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label>Chủ đề (Nội dung / Prompt)</label>
+                            <input type="text" id="topicInput" class="form-control" placeholder="Ví dụ: Hàm số bậc hai..." value="Excel cơ bản">
+                        </div>
+                        <div class="form-group">
+                            <label>Mô tả chi tiết (Tùy chọn)</label>
+                            <textarea id="descInput" class="form-control" rows="2" placeholder="Ví dụ: Tập trung vào hàm IF, VLOOKUP, đề cần có hình ảnh..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Nạp kiến thức cho AI (Tùy chọn)</label>
+                            <div class="upload-box" style="padding: 10px; min-height: 60px; cursor: pointer; border: 2px dashed #a29bfe; border-radius: 8px; text-align: center; background: #f8f9fa;" onclick="document.getElementById('aiKnowledgeFile').click()">
+                                <i class="fa-solid fa-file-arrow-up" style="color: var(--primary); font-size: 20px;"></i>
+                                <p style="font-size: 13px; font-weight: 600; margin: 5px 0 0 0; color: #333;">Tải lên PDF, Word, TXT</p>
+                            </div>
+                            <input type="file" id="aiKnowledgeFile" style="display:none" accept=".txt,.pdf,.doc,.docx" onchange="handleAiKnowledgeSelect(event)">
+                            <div id="aiKnowledgeStatus" style="font-size: 12px; color: var(--c-green); margin-top: 5px; font-weight: 500;"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Số câu hỏi (Tự động tính)</label>
+                            <div class="stepper">
+                                <button onclick="changeNum(-1)">-</button>
+                                <input type="number" id="numQuestions" value="20" min="1" max="100" readonly style="background: #f4f4f4;">
+                                <button onclick="changeNum(1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <label style="font-size: 13px; font-weight: 500; margin-bottom: 8px; color: var(--text-muted);">Tỷ lệ mức độ khó</label>
+                        <div class="difficulty-chart-area">
+                            <div class="chart-container" style="width: 120px;"><canvas id="diffChart"></canvas></div>
+                            <div class="difficulty-inputs">
+                                <div class="diff-input-row"><span><span class="legend-dot" style="background:var(--c-green); display:inline-block; margin-right:5px;"></span> Dễ</span> <input type="number" id="diffEasy" value="40" onchange="updateChart()"> %</div>
+                                <div class="diff-input-row"><span><span class="legend-dot" style="background:var(--c-orange); display:inline-block; margin-right:5px;"></span> TB</span> <input type="number" id="diffMedium" value="40" onchange="updateChart()"> %</div>
+                                <div class="diff-input-row"><span><span class="legend-dot" style="background:var(--c-red); display:inline-block; margin-right:5px;"></span> Khó</span> <input type="number" id="diffHard" value="20" onchange="updateChart()"> %</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top:20px; margin-bottom: 10px; display: flex; gap: 40px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 350px;">
+                        <label style="font-size: 13px; font-weight: 500; margin-bottom: 12px; display:block; color: var(--text-muted);">Cấu trúc đề (Số câu mỗi phần)</label>
+                        <div class="checkbox-list" style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;" id="questionTypesConfig">
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee;">
+                                <label class="custom-checkbox" style="margin-bottom:0;"><input type="checkbox" name="qType" value="mcq" checked onchange="toggleQTypeInput(this)"> Trắc nghiệm</label>
+                                <input type="number" id="numType_mcq" value="5" min="0" max="100" style="width:50px; padding:4px; border-radius:4px; border:1px solid #ddd; text-align:center;" onchange="updateTotalQuestions()">
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee;">
+                                <label class="custom-checkbox" style="margin-bottom:0;"><input type="checkbox" name="qType" value="tf" checked onchange="toggleQTypeInput(this)"> Đúng / Sai</label>
+                                <input type="number" id="numType_tf" value="5" min="0" max="100" style="width:50px; padding:4px; border-radius:4px; border:1px solid #ddd; text-align:center;" onchange="updateTotalQuestions()">
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee;">
+                                <label class="custom-checkbox" style="margin-bottom:0;"><input type="checkbox" name="qType" value="fill" checked onchange="toggleQTypeInput(this)"> Điền khuyết</label>
+                                <input type="number" id="numType_fill" value="10" min="0" max="100" style="width:50px; padding:4px; border-radius:4px; border:1px solid #ddd; text-align:center;" onchange="updateTotalQuestions()">
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee;">
+                                <label class="custom-checkbox" style="margin-bottom:0;"><input type="checkbox" name="qType" value="calc" onchange="toggleQTypeInput(this)"> Tính toán</label>
+                                <input type="number" id="numType_calc" value="0" min="0" max="100" style="width:50px; padding:4px; border-radius:4px; border:1px solid #ddd; text-align:center;" disabled onchange="updateTotalQuestions()">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size: 13px; font-weight: 500; margin-bottom: 12px; display:block; color: var(--text-muted);">Thời gian làm bài</label>
+                        <select id="examTime" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: white; width: 120px;">
+                            <option value="5">5 phút</option>
+                            <option value="10">10 phút</option>
+                            <option value="15">15 phút</option>
+                            <option value="30">30 phút</option>
+                            <option value="45" selected>45 phút</option>
+                            <option value="60">60 phút</option>
+                            <option value="90">90 phút</option>
+                            <option value="120">120 phút</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-actions" style="display: flex; gap: 10px;">
+                    <button class="btn-text"><i class="fa-solid fa-gear"></i> Nâng cao ></button>
+                    <div style="flex: 1;"></div>
+                    <button class="btn-outline-primary" style="padding: 10px 16px; font-weight: 600; border: 2px solid var(--primary); border-radius: 8px; background: white; color: var(--primary);" onclick="startGeneration(true)"><i class="fa-solid fa-robot"></i> Tạo tự động bằng AI</button>
+                    <button class="btn-primary" onclick="openInputModal()"><i class="fa-solid fa-file-import"></i> Tạo từ tài liệu tải lên</button>
+                </div>
+            </div>
+
+            <!-- Modal Đăng nhập -->
+        <div class="modal-overlay" id="loginModal">
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h3>Đăng nhập giáo viên</h3>
+                    <button class="close-btn" onclick="closeLoginModal()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="form-group" style="margin-top:20px;">
+                    <label>Tên hiển thị của bạn</label>
+                    <input type="text" id="loginNameInput" class="form-control" placeholder="Nhập tên của bạn...">
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <button class="btn-outline" onclick="closeLoginModal()">Hủy</button>
+                    <button class="btn-primary" onclick="saveLoginName()">Lưu tên</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chatbot Window -->
+            <div class="bottom-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fa-solid fa-list"></i> Đề gần đây</div>
+                        <a href="#" onclick="switchPage('page-exams', document.querySelectorAll('.menu-item')[3])" style="font-size: 12px; color: var(--primary); text-decoration: none;">Xem tất cả</a>
+                    </div>
+                    <div class="recent-list" id="recentExamsList"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fa-solid fa-chart-line"></i> Thống kê kết quả</div>
+                        <a href="#" onclick="switchPage('page-results', document.querySelectorAll('.menu-item')[5])" style="font-size: 12px; color: var(--primary); text-decoration: none;">Xem chi tiết <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                    <div>
+                        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Dữ liệu biểu đồ được kéo từ Google Sheets tự động.</p>
+                        <div style="height: 160px;"><canvas id="lineChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="mini-card">
+                        <div class="mc-header">
+                            <i class="fa-brands fa-google" style="color:#34a853"></i> Google Sheets
+                        </div>
+                        <p style="font-size: 12px; color:var(--text-muted); margin-bottom: 12px;">Đã tích hợp module lấy dữ liệu tự động cho biểu đồ. Bấm vào trang Cài đặt Google Sheets để xem chi tiết.</p>
+                        <button class="btn-outline" style="width: 100%" onclick="switchPage('page-settings', document.querySelectorAll('.menu-item')[4])">Cấu hình kết nối</button>
+                    </div>
+                    <div class="mini-card" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white; border: none; padding: 24px 20px;">
+                        <div style="font-size: 16px; font-weight: 700; margin-bottom: 15px;"><i class="fa-solid fa-laptop-code"></i> Bản quyền phần mềm</div>
+                        <p style="font-size: 14px; margin-bottom: 8px;"><i class="fa-solid fa-user-pen" style="width: 20px;"></i> Thiết kế: <strong>Trương Thái Hòa</strong></p>
+                        <p style="font-size: 14px;"><i class="fa-solid fa-phone" style="width: 20px;"></i> Hotline: <strong>0773813913</strong></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="height: 60px;"></div> <!-- Spacing for banner -->
+            <!-- Floating Banner -->
+            <div class="floating-banner">
+                <div class="fb-text">
+                    <i class="fa-regular fa-lightbulb"></i> Mẹo hay: Bạn có thể tải lên file tài liệu (PDF, Word, TXT) để AI tự động tạo câu hỏi!
+                </div>
+                <div class="fb-actions">
+                    <button class="btn-outline" onclick="openInputModal()"><i class="fa-solid fa-upload"></i> Tải tài liệu</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE: ĐỀ CỦA TÔI ================= -->
+        <div id="page-exams" class="page-content" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-file-lines"></i> Kho Đề Của Tôi</div>
+                    <button class="btn-outline" style="color: #d63031; border-color: #d63031; padding: 6px 12px; font-size: 13px;" onclick="deleteSelectedExams()"><i class="fa-solid fa-trash-can"></i> Xóa mục đã chọn</button>
+                </div>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Danh sách tất cả các đề kiểm tra bạn đã tạo trên thiết bị này.</p>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="5%"><input type="checkbox" id="selectAllExams" onchange="toggleSelectAll('tableExamsBody', this)"></th>
+                                <th>Tiêu đề</th>
+                                <th>Môn học</th>
+                                <th>Khối lớp</th>
+                                <th>Số câu</th>
+                                <th>Ngày tạo</th>
+                                <th>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableExamsBody">
+                            <!-- Dữ liệu render bằng JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE: NGÂN HÀNG CÂU HỎI ================= -->
+        <div id="page-questions" class="page-content" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-database"></i> Ngân Hàng Câu Hỏi</div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-outline" style="color: #d63031; border-color: #d63031; padding: 6px 12px; font-size: 13px;" onclick="deleteSelectedQuestions()"><i class="fa-solid fa-trash-can"></i> Xóa mục đã chọn</button>
+                        <button class="btn-primary" style="padding: 6px 12px; font-size: 13px;" onclick="downloadQuestionBank()"><i class="fa-solid fa-file-word"></i> Tải Ngân Hàng (.DOC)</button>
+                    </div>
+                </div>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Tất cả các câu hỏi đơn lẻ được AI trích xuất tự động từ các bộ đề bạn đã tạo.</p>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="5%"><input type="checkbox" id="selectAllQuestions" onchange="toggleSelectAll('tableQuestionsBody', this)"></th>
+                                <th width="10%">Mức độ</th>
+                                <th width="65%">Nội dung câu hỏi</th>
+                                <th width="20%">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableQuestionsBody">
+                            <!-- Dữ liệu render bằng JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE: QUẢN LÝ LỚP HỌC ================= -->
+        <div id="page-classes" class="page-content" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-users-rectangle"></i> Quản Lý Lớp Học</div>
+                </div>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Danh sách lớp học dùng để gán cho các đề kiểm tra. Bạn có thể thêm lớp mới tại đây.</p>
+                
+                <div class="form-grid" style="grid-template-columns: 1fr 2fr 1fr; align-items: end; margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Khối</label>
+                        <select id="newClassGrade" class="form-control">
+                            <option value="6">Khối 6</option>
+                            <option value="7">Khối 7</option>
+                            <option value="8">Khối 8</option>
+                            <option value="9">Khối 9</option>
+                            <option value="10">Khối 10</option>
+                            <option value="11">Khối 11</option>
+                            <option value="12">Khối 12</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Tên Lớp</label>
+                        <input type="text" id="newClassName" class="form-control" placeholder="Ví dụ: 7A1, 10A5...">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <button class="btn-primary" style="width: 100%; height: 38px;" onclick="addClass()"><i class="fa-solid fa-plus"></i> Thêm lớp học</button>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="20%">Khối</th>
+                                <th width="60%">Tên Lớp</th>
+                                <th width="20%">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableClassesBody">
+                            <!-- Dữ liệu render bằng JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE: XEM KẾT QUẢ ================= -->
+        <div id="page-results" class="page-content" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-list-check"></i> Kết Quả Học Sinh</div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-outline" style="padding: 6px 12px; font-size: 13px;" onclick="fetchChartData()"><i class="fa-solid fa-rotate-right"></i> Làm mới</button>
+                        <button class="btn-primary" style="padding: 6px 12px; font-size: 13px;" onclick="downloadResultsCsv()"><i class="fa-solid fa-file-csv"></i> Tải dữ liệu lớp</button>
+                    </div>
+                </div>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Dữ liệu bảng điểm đồng bộ từ Google Sheets. Bạn có thể xem và tải về theo từng lớp.</p>
+                
+                <div class="form-group" style="margin-bottom: 20px; max-width: 300px;">
+                    <label>Chọn Lớp Học</label>
+                    <select id="resultsClassSelect" class="form-control" onchange="renderResultsTable()">
+                        <option value="">-- Tất cả các lớp --</option>
+                    </select>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="5%">STT</th>
+                                <th width="20%">HỌ TÊN</th>
+                                <th width="15%">MÔN</th>
+                                <th width="15%">HÌNH THỨC KT</th>
+                                <th width="10%">LỚP</th>
+                                <th width="20%">THỜI GIAN NỘP</th>
+                                <th width="15%">ĐIỂM SỐ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableResultsBody">
+                            <tr><td colspan="7" style="text-align:center; padding: 20px; color:var(--text-muted)">Chưa có dữ liệu, vui lòng cấu hình Google Sheets và chọn "Làm mới".</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE: CÀI ĐẶT GOOGLE SHEETS ================= -->
+        <div id="page-settings" class="page-content" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-brands fa-google"></i> Cấu hình Google Sheets Đồng Bộ</div>
+                    <a href="javascript:void(0)" onclick="downloadCSVTemplate()" class="btn-primary" style="padding: 6px 12px; font-size: 13px; text-decoration: none;"><i class="fa-solid fa-download"></i> Tải File Mẫu (CSV)</a>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="font-weight: 600;">Bước 1: Tạo Google Sheets & Dán mã Apps Script</label>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Tạo một Google Sheets mới (hoặc import file mẫu CSV). Chọn <strong>Tiện ích mở rộng > Apps Script</strong>. Dán toàn bộ đoạn mã sau thay thế code cũ, sau đó bấm <strong>Triển khai (Deploy) > Tùy chọn triển khai mới > Loại: Ứng dụng web (Ai cũng có quyền truy cập)</strong>.</p>
+                    <textarea readonly style="width: 100%; height: 200px; font-family: monospace; font-size: 13px; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: #f8f9fa;">function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["STT", "HỌ TÊN", "MÔN", "HÌNH THỨC KT", "LỚP", "THỜI GIAN NỘP", "ĐIỂM SỐ"]);
+  }
+  var data = e.parameter;
+  var timestamp = Utilities.formatDate(new Date(), "GMT+7", "dd/MM/yyyy HH:mm:ss");
+  var lastRow = sheet.getLastRow();
+  var stt = (lastRow === 1 && sheet.getRange(1,1).getValue() === "STT") ? 1 : lastRow;
+  sheet.appendRow([stt, data.name, data.subject, data.examTime + " Phút", data.className, timestamp, data.score]);
+  return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+}
+
+function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    result.push({ stt: data[i][0], name: data[i][1], subject: data[i][2], examTime: data[i][3], className: data[i][4], date: data[i][5], score: data[i][6] });
+  }
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+}</textarea>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                    <label style="font-weight: 600;">Bước 2: Dán Web App URL vào đây</label>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Copy đường link Web App URL sinh ra sau khi Deploy và dán vào ô dưới đây. Link này sẽ đảm nhiệm cả việc gửi điểm và vẽ biểu đồ.</p>
+                    <input type="text" id="webhookUrl" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+                    <button class="btn-primary" style="margin-top: 10px; width: 100%; padding: 12px; font-size: 14px; font-weight: bold; text-transform: uppercase;" onclick="fetchChartData()"><i class="fa-solid fa-cloud-arrow-up"></i> Lưu Cấu Hình URL & Cập Nhật Dữ Liệu</button>
+                    <p id="csvStatus" style="font-size:12px; margin-top:5px; color:var(--c-green);"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Xem Trước Đề (Review) -->
+    <div id="reviewModal" class="modal-overlay">
+        <div class="modal-content" style="width: 800px; max-width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-magnifying-glass"></i> Xem trước Đề thi</h2>
+                <button class="close-btn" onclick="closeReviewModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="reviewModalBody" style="flex: 1; overflow-y: auto; padding: 20px; background: #f9f9f9; text-align: left;">
+                <!-- Nội dung đề thi sẽ hiển thị ở đây -->
+            </div>
+            <div style="padding: 20px; text-align: right; border-top: 1px solid var(--border-color); background: white;">
+                <button class="btn-outline" style="margin-right: 10px;" onclick="closeReviewModal()">Đóng</button>
+                <button class="btn-primary" onclick="exportHTML()"><i class="fa-solid fa-download"></i> Tải xuống HTML</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHATBOT WINDOW -->
+    <div class="chatbot-window" id="chatbotWindow">
+        <div class="chat-header">
+            <div style="display:flex; align-items:center; gap: 10px;">
+                <div class="icon-btn" style="background: white; color: var(--primary); border:none; width:30px; height:30px;"><i class="fa-solid fa-robot"></i></div>
+                <span style="font-weight: 600;">Trợ lý AI Robot</span>
+            </div>
+            <i class="fa-solid fa-xmark" style="cursor:pointer;" onclick="toggleChatbot()"></i>
+        </div>
+        <div class="chat-body" id="chatBody">
+            <div class="chat-msg bot">Xin chào! Tôi là Trợ lý AI giáo dục. Tôi có thể giúp thầy/cô soạn tóm tắt bài giảng, gợi ý chủ đề tạo đề thi, hoặc giải thích các khái niệm khó. Thầy/cô cần giúp gì ạ?</div>
+        </div>
+        <div class="chat-footer">
+            <input type="text" id="chatInput" class="form-control" placeholder="Nhập tin nhắn..." onkeypress="handleChatEnter(event)">
+            <button class="btn-primary" style="padding: 10px; margin-left: 10px;" onclick="sendChatMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <!-- MODAL NHẬP TEXT / FILE -->
+    <div class="modal-overlay" id="inputModal">
+        <div class="modal-content">
+            <i class="fa-solid fa-xmark modal-close" onclick="closeInputModal()"></i>
+            <div class="modal-title"><i class="fa-solid fa-file-import"></i> Nguồn dữ liệu tạo đề</div>
+            <p style="font-size:14px; margin-bottom:15px; color:var(--text-muted);">Dán danh sách câu hỏi đã soạn hoặc tải file mẫu lên. Chế độ này KHÔNG DÙNG AI, chạy ngầm trực tiếp trên máy.</p>
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label>1. Dán văn bản câu hỏi đã soạn theo mẫu</label>
+                <textarea id="inputText" class="form-control" rows="5" placeholder="Dán nội dung câu hỏi vào đây (Bắt đầu bằng Câu 1: ...)"></textarea>
+            </div>
+            <div style="text-align:center; color:var(--text-muted); margin-bottom: 20px; font-weight:bold;">HOẶC</div>
+            <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="margin-bottom: 0;">2. Tải lên tệp tài liệu mẫu</label>
+                    <a href="javascript:void(0)" onclick="downloadWordTemplate()" style="font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 500;"><i class="fa-solid fa-download"></i> Tải file Mẫu (.DOC)</a>
+                </div>
+                <div class="upload-box" onclick="document.getElementById('inputFile').click()">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <p style="font-weight:600;">Nhấn để chọn file</p>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:5px;">Hỗ trợ: PDF, Word (.docx), TXT</p>
+                </div>
+                <input type="file" id="inputFile" style="display:none" accept=".txt,.pdf,.doc,.docx" onchange="handleFileSelect(event)">
+                <div id="fileExtractedText" style="font-size: 12px; color: var(--c-green); text-align:center; font-weight: 600;"></div>
+            </div>
+            <button class="btn-primary" style="width:100%; justify-content:center; margin-top:10px;" onclick="startGeneration(false)">
+                <i class="fa-solid fa-robot"></i> Bắt đầu tạo đề từ tài liệu
+            </button>
+            <div id="apiStatus" style="font-size:12px; color:var(--primary); text-align:center; margin-top:10px;"></div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text">ROBOT ĐANG XỬ LÝ...</div>
+        <div class="loading-subtext" style="color:var(--text-muted); font-size:14px; margin-top:10px;">Đang thiết lập ma trận đề và xuất dữ liệu.</div>
+    </div>
+
+    <script src="template_data.js"></script>
+    <script src="app.js?v=5"></script>
+</body>
+</html>

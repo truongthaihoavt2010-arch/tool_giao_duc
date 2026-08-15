@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎓 TOOL GIÁO DỤC - Trương Thái Hòa</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6c5ce7">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --purple: #6c5ce7;
+            --purple-dark: #5b4cc4;
+            --purple-glow: rgba(108,92,231,0.3);
+            --teal: #00b894;
+            --teal-dark: #00916e;
+            --teal-glow: rgba(0,184,148,0.3);
+            --bg: #0f0e17;
+            --bg2: #16152a;
+            --bg3: #1e1d35;
+            --text: #fffffe;
+            --text-muted: #a7a9be;
+            --border: rgba(255,255,255,0.08);
+            --card-bg: rgba(255,255,255,0.04);
+            --card-hover: rgba(255,255,255,0.07);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ---- ANIMATED BACKGROUND ---- */
+        .bg-orbs {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            animation: orbFloat 12s ease-in-out infinite;
+        }
+        .orb1 { width: 500px; height: 500px; background: var(--purple); top: -150px; left: -100px; animation-delay: 0s; }
+        .orb2 { width: 400px; height: 400px; background: var(--teal); bottom: -100px; right: -100px; animation-delay: -4s; }
+        .orb3 { width: 300px; height: 300px; background: #e17055; top: 40%; left: 50%; transform: translate(-50%,-50%); animation-delay: -8s; }
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0,0) scale(1); }
+            33% { transform: translate(30px,-30px) scale(1.05); }
+            66% { transform: translate(-20px,20px) scale(0.95); }
+        }
+
+        /* ---- GRID LINES ---- */
+        .grid-lines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* ---- WRAPPER ---- */
+        .wrapper {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ---- TOP BAR ---- */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 40px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(15,14,23,0.8);
+            backdrop-filter: blur(20px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .topbar-logo {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, var(--purple), #a29bfe);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 4px 16px var(--purple-glow);
+        }
+        .topbar-title {
+            font-size: 17px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 0%, #a29bfe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 0.5px;
+        }
+        .topbar-badge {
+            font-size: 11px;
+            background: rgba(108,92,231,0.2);
+            border: 1px solid rgba(108,92,231,0.4);
+            color: #a29bfe;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .topbar-author {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .topbar-author .avatar {
+            width: 34px; height: 34px;
+            background: linear-gradient(135deg, var(--purple), var(--teal));
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 700;
+        }
+
+        /* ---- HERO ---- */
+        .hero {
+            text-align: center;
+            padding: 80px 40px 60px;
+        }
+        .hero-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(108,92,231,0.12);
+            border: 1px solid rgba(108,92,231,0.3);
+            color: #a29bfe;
+            padding: 6px 18px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+            animation: fadeUp 0.6s ease forwards;
+        }
+        .hero-tag::before {
+            content: '';
+            width: 6px; height: 6px;
+            background: #a29bfe;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 900;
+            line-height: 1.15;
+            margin-bottom: 20px;
+            animation: fadeUp 0.7s ease forwards;
+            animation-delay: 0.1s;
+            opacity: 0;
+        }
+        .hero h1 .gradient-text {
+            background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 40%, #00b894 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            font-size: 17px;
+            color: var(--text-muted);
+            max-width: 540px;
+            margin: 0 auto 40px;
+            line-height: 1.7;
+            animation: fadeUp 0.8s ease forwards;
+            animation-delay: 0.2s;
+            opacity: 0;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ---- STATS ROW ---- */
+        .stats-row {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-bottom: 60px;
+            animation: fadeUp 0.9s ease forwards;
+            animation-delay: 0.3s;
+            opacity: 0;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-item strong {
+            display: block;
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff, #a29bfe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-item span {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .stat-divider {
+            width: 1px;
+            background: var(--border);
+        }
+
+        /* ---- TOOL CARDS ---- */
+        .tools-section {
+            padding: 0 40px 80px;
+        }
+        .section-label {
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+        }
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 28px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .tool-card {
+            position: relative;
+            border-radius: 24px;
+            padding: 36px 36px 32px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            animation: fadeUp 1s ease forwards;
+            opacity: 0;
+        }
+        .tool-card:nth-child(1) { animation-delay: 0.4s; }
+        .tool-card:nth-child(2) { animation-delay: 0.55s; }
+
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 24px;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .tool-card.purple-card::before {
+            background: radial-gradient(ellipse at top left, rgba(108,92,231,0.15), transparent 70%);
+        }
+        .tool-card.teal-card::before {
+            background: radial-gradient(ellipse at top left, rgba(0,184,148,0.15), transparent 70%);
+        }
+        .tool-card:hover::before { opacity: 1; }
+        .tool-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(255,255,255,0.15);
+            background: var(--card-hover);
+        }
+        .tool-card.purple-card:hover {
+            box-shadow: 0 20px 60px rgba(108,92,231,0.25), 0 0 0 1px rgba(108,92,231,0.3);
+        }
+        .tool-card.teal-card:hover {
+            box-shadow: 0 20px 60px rgba(0,184,148,0.2), 0 0 0 1px rgba(0,184,148,0.25);
+        }
+
+        /* Shimmer border */
+        .tool-card::after {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 25px;
+            background: linear-gradient(135deg, transparent, rgba(255,255,255,0.05), transparent);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .tool-card:hover::after { opacity: 1; }
+
+        .card-icon-wrap {
+            width: 68px; height: 68px;
+            border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px;
+            margin-bottom: 24px;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        .tool-card:hover .card-icon-wrap { transform: scale(1.1) rotate(-5deg); }
+        .purple-icon { background: linear-gradient(135deg, #6c5ce7, #a29bfe); box-shadow: 0 8px 24px rgba(108,92,231,0.4); }
+        .teal-icon { background: linear-gradient(135deg, #00b894, #55efc4); box-shadow: 0 8px 24px rgba(0,184,148,0.4); }
+
+        .card-badge {
+            position: absolute;
+            top: 28px; right: 28px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            text-transform: uppercase;
+        }
+        .badge-purple {
+            background: rgba(108,92,231,0.2);
+            border: 1px solid rgba(108,92,231,0.4);
+            color: #a29bfe;
+        }
+        .badge-teal {
+            background: rgba(0,184,148,0.2);
+            border: 1px solid rgba(0,184,148,0.35);
+            color: #55efc4;
+        }
+
+        .card-title {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            letter-spacing: -0.3px;
+        }
+        .card-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.65;
+            margin-bottom: 28px;
+        }
+
+        .card-features {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 32px;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .feature-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .dot-purple { background: #a29bfe; }
+        .dot-teal { background: #55efc4; }
+
+        .card-cta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            transition: all 0.3s ease;
+        }
+        .cta-purple {
+            background: linear-gradient(135deg, rgba(108,92,231,0.2), rgba(162,155,254,0.1));
+            border: 1px solid rgba(108,92,231,0.3);
+            color: #a29bfe;
+        }
+        .cta-teal {
+            background: linear-gradient(135deg, rgba(0,184,148,0.15), rgba(85,239,196,0.08));
+            border: 1px solid rgba(0,184,148,0.25);
+            color: #55efc4;
+        }
+        .tool-card:hover .cta-purple {
+            background: linear-gradient(135deg, rgba(108,92,231,0.4), rgba(162,155,254,0.2));
+            border-color: rgba(108,92,231,0.6);
+        }
+        .tool-card:hover .cta-teal {
+            background: linear-gradient(135deg, rgba(0,184,148,0.35), rgba(85,239,196,0.15));
+            border-color: rgba(0,184,148,0.5);
+        }
+        .cta-arrow {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+        .tool-card:hover .cta-arrow {
+            transform: translateX(4px);
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* ---- INTEGRATION NOTE ---- */
+        .integration-note {
+            max-width: 700px;
+            margin: 0 auto 60px;
+            padding: 20px 28px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+            animation: fadeUp 1s ease forwards;
+            animation-delay: 0.7s;
+            opacity: 0;
+        }
+        .note-icon {
+            width: 40px; height: 40px;
+            background: rgba(253,203,110,0.15);
+            border: 1px solid rgba(253,203,110,0.25);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        /* ---- FOOTER ---- */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 24px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-muted);
+            background: rgba(15,14,23,0.5);
+        }
+        footer .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+        footer .footer-brand span { color: var(--text); }
+        footer .footer-links {
+            display: flex;
+            gap: 24px;
+        }
+        footer .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        footer .footer-links a:hover { color: var(--text); }
+
+        /* ---- IFRAME MODAL ---- */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5,5,15,0.95);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .modal-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .modal-app-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+        }
+        .modal-app-name {
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .modal-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .modal-btn {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .modal-btn:hover { background: var(--card-hover); color: var(--text); }
+        .modal-close {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        .modal-close:hover { background: rgba(255,100,100,0.15); color: #ff6b6b; border-color: rgba(255,100,100,0.3); }
+        .modal-iframe {
+            flex: 1;
+            border: none;
+            width: 100%;
+        }
+
+        /* ---- RESPONSIVE ---- */
+        @media (max-width: 768px) {
+            .tools-grid { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 2rem; }
+            .stats-row { gap: 20px; flex-wrap: wrap; }
+            .topbar { padding: 14px 20px; }
+            footer { flex-direction: column; gap: 12px; text-align: center; }
+        }
+
+        /* Loading indicator */
+        .iframe-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            flex-direction: column;
+            gap: 20px;
+        }
+        .loading-spinner {
+            width: 50px; height: 50px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--purple);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .modal-iframe-wrap {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+        .modal-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        /* ---- DEEPSEEK CONFIG PANEL ---- */
+        .ai-config-panel {
+            max-width: 680px;
+            margin: 0 auto 50px;
+            padding: 28px 32px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: blur(16px);
+            animation: fadeUp 1s ease forwards;
+            animation-delay: 0.35s;
+            opacity: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .ai-config-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 20px;
+            background: radial-gradient(ellipse at top left, rgba(108,92,231,0.08), transparent 60%);
+            pointer-events: none;
+        }
+        .ai-config-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+        .ai-config-icon {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, #4f8ef7, #6c5ce7);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 6px 20px rgba(79,142,247,0.35);
+            flex-shrink: 0;
+        }
+        .ai-config-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.3px;
+        }
+        .ai-config-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .ai-config-row {
+            display: flex;
+            gap: 14px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .ai-config-field {
+            flex: 1;
+            min-width: 160px;
+        }
+        .ai-config-field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .ai-config-field select,
+        .ai-config-field input {
+            width: 100%;
+            padding: 11px 14px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            color: var(--text);
+            font-family: 'Be Vietnam Pro', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.25s ease;
+        }
+        .ai-config-field select:focus,
+        .ai-config-field input:focus {
+            border-color: rgba(108,92,231,0.6);
+            background: rgba(255,255,255,0.09);
+            box-shadow: 0 0 0 3px rgba(108,92,231,0.15);
+        }
+        .ai-config-field select option {
+            background: #1e1d35;
+            color: #fff;
+        }
+        .ai-key-wrap {
+            position: relative;
+        }
+        .ai-key-wrap input {
+            padding-right: 42px;
+        }
+        .ai-key-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+            transition: color 0.2s;
+        }
+        .ai-key-toggle:hover {
+            color: var(--text);
+        }
+        .ai-connect-btn {
+            padding: 11px 22px;
+            background: linear-gradient(135deg, #4f8ef7, #6c5ce7);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-family: 'Be Vietnam Pro', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            box-shadow: 0 4px 16px rgba(79,142,247,0.3);
+            flex-shrink: 0;
+        }
+        .ai-connect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(79,142,247,0.45);
+        }
+        .ai-connect-btn:active {
+            transform: translateY(0);
+        }
+        .ai-connect-btn.connecting {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        .ai-connect-btn.connected {
+            background: linear-gradient(135deg, #00b894, #55efc4);
+            box-shadow: 0 4px 16px rgba(0,184,148,0.35);
+        }
+        .ai-status-bar {
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            min-height: 20px;
+        }
+        .ai-status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .ai-status-dot.idle {
+            background: #636e72;
+        }
+        .ai-status-dot.connecting {
+            background: #fdcb6e;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        .ai-status-dot.connected {
+            background: #00b894;
+            box-shadow: 0 0 8px rgba(0,184,148,0.6);
+        }
+        .ai-status-dot.error {
+            background: #e17055;
+            box-shadow: 0 0 8px rgba(225,112,85,0.5);
+        }
+
+    </style>
+</head>
+<body>
+
+<!-- BACKGROUND -->
+<div class="bg-orbs">
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+</div>
+<div class="grid-lines"></div>
+
+<!-- WRAPPER -->
+<div class="wrapper">
+
+    <!-- TOP BAR -->
+    <nav class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-logo">🎓</div>
+            <div>
+                <div class="topbar-title">TOOL GIÁO DỤC</div>
+            </div>
+            <div class="topbar-badge">v2.0</div>
+        </div>
+        <div class="topbar-author">
+            <div class="avatar">T</div>
+            <div>
+                <div style="font-weight:600; color: var(--text); font-size:13px;">Trương Thái Hòa</div>
+                <div style="font-size:11px;">Giáo viên Tin học | ☎ 0773813913</div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="hero-tag">
+            <i class="fa-solid fa-sparkles" style="font-size:10px;"></i>
+            Bộ công cụ giáo dục AI
+        </div>
+        <h1>
+            Nền tảng Giáo dục<br>
+            <span class="gradient-text">Thông minh & Hiện đại</span>
+        </h1>
+        <p>
+            Hệ sinh thái giáo dục toàn diện tích hợp <strong style="color:#a29bfe;">Robot Tạo Đề</strong> và
+            <strong style="color:#55efc4;">Quản Lý Điểm</strong>. Ứng dụng sức mạnh Trí tuệ nhân tạo giúp 
+            tối ưu hóa thời gian và nâng cao hiệu quả giảng dạy.
+        </p>
+
+        <!-- STATS -->
+        <div class="stats-row">
+            <div class="stat-item">
+                <strong>2</strong>
+                <span>Công cụ tích hợp</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <strong>AI</strong>
+                <span>Powered by DeepSeek</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <strong>Pro</strong>
+                <span>API trả phí</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <strong>Google</strong>
+                <span>Kết nối Sheets</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- DEEPSEEK AI CONFIG PANEL -->
+    <section class="tools-section" style="padding-bottom: 0;">
+        <div class="ai-config-panel" id="aiConfigPanel">
+            <div class="ai-config-header">
+                <div class="ai-config-icon">🧠</div>
+                <div>
+                    <div class="ai-config-title">Cấu hình DeepSeek AI</div>
+                    <div class="ai-config-subtitle">Kết nối API trả phí — không bị nghẽn mạng, tốc độ cao</div>
+                </div>
+            </div>
+            <div class="ai-config-row">
+                <div class="ai-config-field">
+                    <label>Model AI</label>
+                    <select id="dsModelSelect">
+                        <option value="deepseek-chat">DeepSeek Chat (Nhanh, đa năng)</option>
+                        <option value="deepseek-reasoner">DeepSeek Reasoner (Suy luận mạnh)</option>
+                    </select>
+                </div>
+                <div class="ai-config-field" style="flex: 2;">
+                    <label>API Key</label>
+                    <div class="ai-key-wrap">
+                        <input type="password" id="dsApiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx" spellcheck="false" autocomplete="off">
+                        <button class="ai-key-toggle" onclick="toggleApiKeyVisibility()" title="Hiện/ẩn API Key" type="button">
+                            <i class="fa-solid fa-eye" id="keyToggleIcon"></i>
+                        </button>
+                    </div>
+                </div>
+                <button class="ai-connect-btn" id="dsConnectBtn" onclick="connectDeepSeek()">
+                    <i class="fa-solid fa-plug"></i>
+                    <span>Kết nối</span>
+                </button>
+            </div>
+            <div class="ai-status-bar" id="aiStatusBar">
+                <div class="ai-status-dot idle" id="aiStatusDot"></div>
+                <span id="aiStatusText">Chưa kết nối — nhập API Key và bấm Kết nối</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- TOOLS -->
+    <section class="tools-section">
+        <div class="section-label">Chọn công cụ để bắt đầu</div>
+
+        <div class="tools-grid">
+            <!-- CARD 1: ROBOT TẠO ĐỀ -->
+            <a class="tool-card purple-card" href="#" onclick="openApp('robot', event)">
+                <div class="card-badge badge-purple">
+                    <i class="fa-solid fa-robot" style="margin-right:4px; font-size:8px;"></i>AI Robot
+                </div>
+                <div class="card-icon-wrap purple-icon">🤖</div>
+                <div class="card-title">Robot Tạo Đề</div>
+                <div class="card-desc">
+                    Hệ thống tạo đề kiểm tra trắc nghiệm thông minh bằng AI.
+                    Tự động sinh câu hỏi từ tài liệu, PDF, Word — hoàn toàn tự động.
+                </div>
+                <div class="card-features">
+                    <div class="feature-item">
+                        <div class="feature-dot dot-purple"></div>
+                        Tạo đề tự động bằng AI (DeepSeek)
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-dot dot-purple"></div>
+                        Nhập từ PDF, Word, TXT
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-dot dot-purple"></div>
+                        Ngân hàng câu hỏi & lịch sử đề
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-dot dot-purple"></div>
+                        Xuất bài thi HTML cho học sinh
+                    </div>
+                </div>
+                <div class="card-cta cta-purple">
+                    <span>Mở Robot Tạo Đề</span>
+                    <div class="cta-arrow">
+                        <i class="fa-solid fa-arrow-right" style="font-size:12px;"></i>
+                    </div>
+                </div>
+            </a>
+
+            <!-- CARD 2: QUẢN LÝ ĐIỂM -->
+            <a class="tool-card teal-card" href="#" onclick="openApp('diem', event)">
+                <div class="card-badge badge-teal">
+                    <i class="fa-solid fa-chart-bar" style="margin-right:4px; font-size:8px;"></i>EduScore
+                </div>
+                <div class="card-icon-wrap teal-icon">📊</div>
+                <div class="card-title">Quản Lý Điểm Số</div>
+                <div class="card-desc">
+                    Dashboard quản lý điểm học sinh chuyên nghiệp.
+                    Kết nối trực tiếp từ Google Sheets — thống kê, phân tích, xuất báo cáo.
+                </div>
+                <div class="card-features">
+                    <div class="feature-item">
+                        <div class="feature-dot dot-teal"></div>
+                        Đồng bộ điểm từ Google Sheets
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-dot dot-teal"></div>
+                        Biểu đồ thống kê theo lớp / môn
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-dot dot-teal"></div>
+                        Quản lý nhiều lớp học cùng lúc
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-dot dot-teal"></div>
+                        Xuất dữ liệu CSV, phân tích kết quả
+                    </div>
+                </div>
+                <div class="card-cta cta-teal">
+                    <span>Mở Quản Lý Điểm</span>
+                    <div class="cta-arrow">
+                        <i class="fa-solid fa-arrow-right" style="font-size:12px;"></i>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- INTEGRATION NOTE -->
+        <div class="integration-note">
+            <div class="note-icon">💡</div>
+            <div>
+                <strong style="color: var(--text); display:block; margin-bottom:4px;">Hai công cụ kết nối liền mạch</strong>
+                Robot Tạo Đề tạo bài thi → Học sinh làm bài → Điểm tự động gửi về Google Sheets →
+                Quản Lý Điểm thống kê theo lớp. Tất cả trong một hệ sinh thái khép kín!
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-brand">
+            <span>🎓 TOOL GIÁO DỤC</span>
+            &nbsp;—&nbsp;
+            Thiết kế bởi <span style="margin-left:4px; color:#a29bfe;">Trương Thái Hòa</span>
+        </div>
+        <div style="font-size:12px; color: var(--text-muted);">
+            <i class="fa-solid fa-phone" style="margin-right:6px;"></i>0773813913
+            &nbsp;·&nbsp;
+            <i class="fa-solid fa-microchip" style="margin-right:6px;"></i>Tích hợp DeepSeek AI
+        </div>
+    </footer>
+
+</div><!-- end wrapper -->
+
+<!-- MODAL: ROBOT TẠO ĐỀ -->
+<div class="modal-overlay" id="modal-robot">
+    <div class="modal-topbar">
+        <div class="modal-title-wrap">
+            <div class="modal-app-icon" style="background: linear-gradient(135deg,#6c5ce7,#a29bfe);">🤖</div>
+            <div>
+                <div class="modal-app-name">Robot Tạo Đề</div>
+                <div style="font-size:11px; color: var(--text-muted);">Hệ thống tạo đề kiểm tra bằng AI</div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <a href="robot-tao-de/index.html" target="_blank" class="modal-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                Mở tab mới
+            </a>
+            <div class="modal-close" onclick="closeApp('robot')" title="Đóng">
+                <i class="fa-solid fa-xmark"></i>
+            </div>
+        </div>
+    </div>
+    <div class="modal-iframe-wrap">
+        <div class="iframe-loading" id="loading-robot">
+            <div class="loading-spinner"></div>
+            <div style="color: var(--text-muted); font-size:14px;">Đang tải Robot Tạo Đề...</div>
+        </div>
+        <iframe
+            id="iframe-robot"
+            class="modal-iframe"
+            src=""
+            onload="hideLoading('robot')"
+        ></iframe>
+    </div>
+</div>
+
+<!-- MODAL: QUẢN LÝ ĐIỂM -->
+<div class="modal-overlay" id="modal-diem">
+    <div class="modal-topbar">
+        <div class="modal-title-wrap">
+            <div class="modal-app-icon" style="background: linear-gradient(135deg,#00b894,#55efc4);">📊</div>
+            <div>
+                <div class="modal-app-name">Quản Lý Điểm Số</div>
+                <div style="font-size:11px; color: var(--text-muted);">EduScore Dashboard</div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <a href="quan-ly-diem/index.html" target="_blank" class="modal-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                Mở tab mới
+            </a>
+            <div class="modal-close" onclick="closeApp('diem')" title="Đóng">
+                <i class="fa-solid fa-xmark"></i>
+            </div>
+        </div>
+    </div>
+    <div class="modal-iframe-wrap">
+        <div class="iframe-loading" id="loading-diem">
+            <div class="loading-spinner"></div>
+            <div style="color: var(--text-muted); font-size:14px;">Đang tải Quản Lý Điểm...</div>
+        </div>
+        <iframe
+            id="iframe-diem"
+            class="modal-iframe"
+            src=""
+            onload="hideLoading('diem')"
+        ></iframe>
+    </div>
+</div>
+
+<script>
+    // ======= DEEPSEEK CONFIG STATE =======
+    let deepSeekConfig = {
+        apiKey: '',
+        model: 'deepseek-chat',
+        connected: false
+    };
+
+    // Khôi phục config từ localStorage khi load trang
+    function loadDeepSeekConfig() {
+        try {
+            const saved = localStorage.getItem('deepseek_config');
+            if (saved) {
+                const cfg = JSON.parse(saved);
+                deepSeekConfig.apiKey = cfg.apiKey || '';
+                deepSeekConfig.model = cfg.model || 'deepseek-chat';
+                deepSeekConfig.connected = cfg.connected || false;
+
+                // Restore UI
+                document.getElementById('dsApiKeyInput').value = deepSeekConfig.apiKey;
+                document.getElementById('dsModelSelect').value = deepSeekConfig.model;
+
+                if (deepSeekConfig.connected && deepSeekConfig.apiKey) {
+                    setAIStatus('connected', `✅ Đã kết nối — Model: ${getModelDisplayName(deepSeekConfig.model)}`);
+                    const btn = document.getElementById('dsConnectBtn');
+                    btn.classList.add('connected');
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Đã kết nối</span>';
+                }
+            }
+        } catch(e) { console.warn('Lỗi load config:', e); }
+    }
+
+    function saveDeepSeekConfig() {
+        localStorage.setItem('deepseek_config', JSON.stringify(deepSeekConfig));
+    }
+
+    function getModelDisplayName(model) {
+        const names = {
+            'deepseek-chat': 'DeepSeek Chat',
+            'deepseek-reasoner': 'DeepSeek Reasoner'
+        };
+        return names[model] || model;
+    }
+
+    function setAIStatus(state, text) {
+        const dot = document.getElementById('aiStatusDot');
+        const txt = document.getElementById('aiStatusText');
+        dot.className = 'ai-status-dot ' + state;
+        txt.textContent = text;
+    }
+
+    function toggleApiKeyVisibility() {
+        const input = document.getElementById('dsApiKeyInput');
+        const icon = document.getElementById('keyToggleIcon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'fa-solid fa-eye-slash';
+        } else {
+            input.type = 'password';
+            icon.className = 'fa-solid fa-eye';
+        }
+    }
+
+    async function connectDeepSeek() {
+        const apiKey = document.getElementById('dsApiKeyInput').value.trim();
+        const model = document.getElementById('dsModelSelect').value;
+        const btn = document.getElementById('dsConnectBtn');
+
+        if (!apiKey) {
+            setAIStatus('error', '❌ Vui lòng nhập API Key DeepSeek');
+            return;
+        }
+
+        // Set connecting state
+        btn.classList.add('connecting');
+        btn.classList.remove('connected');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Đang kết nối...</span>';
+        setAIStatus('connecting', '⏳ Đang kiểm tra kết nối DeepSeek...');
+
+        try {
+            const response = await fetch('https://api.deepseek.com/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{role: 'user', content: 'Xin chào! Trả lời đúng 1 từ: OK'}],
+                    max_tokens: 10
+                })
+            });
+
+            if (response.ok) {
+                deepSeekConfig.apiKey = apiKey;
+                deepSeekConfig.model = model;
+                deepSeekConfig.connected = true;
+                saveDeepSeekConfig();
+
+                btn.classList.remove('connecting');
+                btn.classList.add('connected');
+                btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Đã kết nối</span>';
+                setAIStatus('connected', `✅ Kết nối thành công — Model: ${getModelDisplayName(model)}`);
+
+                // Gửi config đến tất cả iframe đang mở
+                broadcastDeepSeekConfig();
+            } else {
+                const errData = await response.text();
+                throw new Error(errData);
+            }
+        } catch(e) {
+            deepSeekConfig.connected = false;
+            saveDeepSeekConfig();
+
+            btn.classList.remove('connecting', 'connected');
+            btn.innerHTML = '<i class="fa-solid fa-plug"></i><span>Kết nối</span>';
+            setAIStatus('error', `❌ Kết nối thất bại: ${e.message.substring(0, 80)}`);
+        }
+    }
+
+    // Gửi config DeepSeek tới tất cả iframe con
+    function broadcastDeepSeekConfig() {
+        Object.keys(APP_CONFIG).forEach(key => {
+            const iframe = document.getElementById(APP_CONFIG[key].iframe);
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'DEEPSEEK_CONFIG',
+                    apiKey: deepSeekConfig.apiKey,
+                    model: deepSeekConfig.model,
+                    connected: deepSeekConfig.connected
+                }, '*');
+            }
+        });
+    }
+
+    // Lắng nghe model/key thay đổi → tự động cập nhật nếu đã kết nối
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDeepSeekConfig();
+
+        document.getElementById('dsModelSelect').addEventListener('change', () => {
+            deepSeekConfig.model = document.getElementById('dsModelSelect').value;
+            if (deepSeekConfig.connected) {
+                saveDeepSeekConfig();
+                setAIStatus('connected', `✅ Đã kết nối — Model: ${getModelDisplayName(deepSeekConfig.model)}`);
+                broadcastDeepSeekConfig();
+            }
+        });
+    });
+
+    // ======= APP CONFIG & NAVIGATION =======
+    const APP_CONFIG = {
+        robot: {
+            modal: 'modal-robot',
+            iframe: 'iframe-robot',
+            src: 'robot-tao-de/index.html'
+        },
+        diem: {
+            modal: 'modal-diem',
+            iframe: 'iframe-diem',
+            src: 'quan-ly-diem/index.html'
+        }
+    };
+
+    function openApp(key, e) {
+        if (e) e.preventDefault();
+        const cfg = APP_CONFIG[key];
+        const modal = document.getElementById(cfg.modal);
+        const iframe = document.getElementById(cfg.iframe);
+        const loading = document.getElementById('loading-' + key);
+
+        // Show loading
+        if (loading) loading.style.display = 'flex';
+
+        // Load iframe nếu chưa load
+        const alreadyLoaded = iframe.getAttribute('data-loaded') === '1';
+        if (!alreadyLoaded) {
+            iframe.src = cfg.src;
+            // Fallback: ẩn loading sau 2.5s dù onload có fire hay không
+            setTimeout(() => hideLoading(key), 2500);
+            iframe.setAttribute('data-loaded', '1');
+
+            // Sau khi iframe load xong, gửi config DeepSeek
+            iframe.addEventListener('load', () => {
+                if (deepSeekConfig.connected) {
+                    setTimeout(() => {
+                        iframe.contentWindow.postMessage({
+                            type: 'DEEPSEEK_CONFIG',
+                            apiKey: deepSeekConfig.apiKey,
+                            model: deepSeekConfig.model,
+                            connected: deepSeekConfig.connected
+                        }, '*');
+                    }, 500);
+                }
+            }, { once: true });
+        } else {
+            // Đã load rồi, ẩn loading ngay + gửi lại config
+            hideLoading(key);
+            if (deepSeekConfig.connected && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'DEEPSEEK_CONFIG',
+                    apiKey: deepSeekConfig.apiKey,
+                    model: deepSeekConfig.model,
+                    connected: deepSeekConfig.connected
+                }, '*');
+            }
+        }
+
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeApp(key) {
+        const cfg = APP_CONFIG[key];
+        const modal = document.getElementById(cfg.modal);
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    function hideLoading(key) {
+        const loadingEl = document.getElementById('loading-' + key);
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+
+    // ESC to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            Object.keys(APP_CONFIG).forEach(key => closeApp(key));
+        }
+    });
+
+    // Particle stars effect (subtle)
+    function createStars() {
+        const canvas = document.createElement('canvas');
+        canvas.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;';
+        document.body.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+        let stars = [];
+        
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < 80; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    r: Math.random() * 1.2,
+                    a: Math.random(),
+                    speed: 0.003 + Math.random() * 0.005
+                });
+            }
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stars.forEach(s => {
+                s.a += s.speed;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255,255,255,${0.3 + 0.4 * Math.abs(Math.sin(s.a))})`;
+                ctx.fill();
+            });
+            requestAnimationFrame(draw);
+        }
+        
+        resize();
+        initStars();
+        draw();
+        window.addEventListener('resize', () => { resize(); initStars(); });
+    }
+    
+    createStars();
+</script>
+
+</body>
+</html>

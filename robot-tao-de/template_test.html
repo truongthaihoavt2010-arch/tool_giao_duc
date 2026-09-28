@@ -170,6 +170,14 @@
         <div class="modal-box">
             <div class="modal-title"><i class="fa-solid fa-laptop-code"></i> HỆ THỐNG THI TRẮC NGHIỆM</div>
             <div class="modal-subtitle" id="start-subject-name">Môn: Đang tải...</div>
+            <!-- Chỉ hiện khi JavaScript không chạy (xem trước trong Zalo/Tệp trên iPhone...) -->
+            <div id="js-warning" style="background:#fff3cd; color:#664d03; border:1px solid #ffe69c; border-radius:8px; padding:12px; margin-bottom:15px; font-size:14px; line-height:1.5; text-align:left;">
+                <b>⚠️ Không thể làm bài trong khung xem trước này.</b><br>
+                Hãy mở file bằng trình duyệt <b>Safari</b> hoặc <b>Chrome</b>:<br>
+                • iPhone: bấm nút <b>Chia sẻ</b> → <b>Mở trong Safari</b> (hoặc lưu vào Tệp rồi mở bằng Chrome).<br>
+                • Zalo: bấm <b>⋯</b> → <b>Mở bằng trình duyệt</b>.<br>
+                • Android: mở bằng <b>Chrome</b>.
+            </div>
             <form id="startForm">
                 <div class="form-group">
                     <label>Họ và tên thí sinh:</label>
@@ -343,12 +351,16 @@
 
         const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-        // INIT
-        window.onload = () => {
+        // INIT — chạy ngay khi HTML sẵn sàng, không chờ font/icon từ Internet (mạng điện thoại chậm)
+        function initExam() {
+            const jsWarning = document.getElementById('js-warning');
+            if (jsWarning) jsWarning.style.display = 'none';
+
             // Setup classes dynamically
             const classSelect = document.getElementById('className');
-            if (typeof ALLOWED_CLASSES !== 'undefined' && ALLOWED_CLASSES.trim() !== '') {
-                const classList = ALLOWED_CLASSES.split(',').map(c => c.trim()).filter(c => c);
+            const classList = (typeof ALLOWED_CLASSES !== 'undefined' ? String(ALLOWED_CLASSES) : '')
+                .split(/[,;]/).map(c => c.trim()).filter(c => c);
+            if (classList.length > 0) {
                 classSelect.innerHTML = '<option value="">-- Chọn lớp --</option>';
                 classList.forEach(c => {
                     let opt = document.createElement('option');
@@ -384,7 +396,9 @@
                     startTimer();
                 }
             });
-        };
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initExam);
+        else initExam();
 
         function initGrid() {
             const grid = document.getElementById('q-grid');

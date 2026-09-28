@@ -1658,13 +1658,17 @@ async function exportHTML() {
     if (typeof TEMPLATE_B64 === "undefined") return alert("Không tìm thấy template_data.js.");
 
     let templateContent = b64DecodeUnicode(TEMPLATE_B64);
-    templateContent = templateContent.replace('const EXAM_DATA = []; // Template placeholder', `const EXAM_DATA = ${JSON.stringify(currentExamData)};`);
-    templateContent = templateContent.replace('const WEBHOOK_URL = ""; // Template placeholder', `const WEBHOOK_URL = "${webhookUrl}";`);
-    templateContent = templateContent.replace('const EXAM_TIME = 45; // Template placeholder', `const EXAM_TIME = ${examTime};`);
-    templateContent = templateContent.replace('const SUBJECT = "Chung"; // Template placeholder', `const SUBJECT = "${document.getElementById('subject').value || "Chung"}";`);
+    // Dùng JSON.stringify để dấu " hoặc xuống dòng trong dữ liệu không làm hỏng JS của đề thi;
+    // escape "<" để nội dung như "</script>" không cắt ngang thẻ script; dùng hàm thay thế để "$" không bị hiểu nhầm
+    const jsStr = v => JSON.stringify(String(v)).replace(/</g, '\\u003c');
+    const examJson = JSON.stringify(currentExamData).split('<').join('\\x3c').split(String.fromCharCode(0x2028)).join('\\u2028').split(String.fromCharCode(0x2029)).join('\\u2029');
+    templateContent = templateContent.replace('const EXAM_DATA = []; // Template placeholder', () => `const EXAM_DATA = ${examJson};`);
+    templateContent = templateContent.replace('const WEBHOOK_URL = ""; // Template placeholder', () => `const WEBHOOK_URL = ${jsStr(webhookUrl)};`);
+    templateContent = templateContent.replace('const EXAM_TIME = 45; // Template placeholder', () => `const EXAM_TIME = ${examTime || 45};`);
+    templateContent = templateContent.replace('const SUBJECT = "Chung"; // Template placeholder', () => `const SUBJECT = ${jsStr(document.getElementById('subject').value || "Chung")};`);
     let rawGrade = document.getElementById('grade').value || "";
-    let normalizedGrade = rawGrade.replace(/;/g, ',');
-    templateContent = templateContent.replace('const ALLOWED_CLASSES = ""; // Template placeholder', `const ALLOWED_CLASSES = "${normalizedGrade}";`);
+    let normalizedGrade = rawGrade.split(/[,;\n]/).map(c => c.trim()).filter(c => c).join(',');
+    templateContent = templateContent.replace('const ALLOWED_CLASSES = ""; // Template placeholder', () => `const ALLOWED_CLASSES = ${jsStr(normalizedGrade)};`);
 
     const suggestedName = `${document.getElementById('subject').value}_TracNghiem.html`.replace(/\s+/g, '_');
     let finalName = suggestedName;

@@ -640,15 +640,32 @@ async function fetchChartData() {
     localStorage.setItem("robotWebhookUrl", url);
     document.getElementById('csvStatus').innerText = "Đang kết nối tải dữ liệu...";
     try {
-        const response = await fetch(url);
-        if(!response.ok) throw new Error("Lỗi kết nối Web App URL. Vui lòng kiểm tra lại đường link.");
-        
-        let dataJson;
-        try {
-            dataJson = await response.json();
-        } catch (e) {
-            throw new Error("Dữ liệu trả về không phải là JSON hợp lệ. Đảm bảo bạn copy đúng Web App URL.");
+        // Apps Script thỉnh thoảng lỗi tạm thời (nhất là khi Sheet nhiều dòng): thử tối đa 3 lần
+        let dataJson, lastErr;
+        for (let attempt = 1; attempt <= 3 && dataJson === undefined; attempt++) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 45000);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                if (!response.ok) throw new Error("Lỗi kết nối Web App URL (HTTP " + response.status + "). Vui lòng kiểm tra lại đường link.");
+                const text = await response.text();
+                try {
+                    dataJson = JSON.parse(text);
+                } catch (e) {
+                    throw new Error("Dữ liệu trả về không phải là JSON hợp lệ. Đảm bảo bạn copy đúng Web App URL.");
+                }
+            } catch (e) {
+                lastErr = controller.signal.aborted ? new Error("Google Sheets phản hồi quá lâu.") : e;
+                console.warn(`[Google Sheets] Lần ${attempt} thất bại:`, lastErr.message);
+                if (attempt < 3) {
+                    document.getElementById('csvStatus').innerText = `Kết nối chưa được, đang thử lại (lần ${attempt + 1}/3)...`;
+                    await new Promise(r => setTimeout(r, attempt * 2000));
+                }
+            } finally {
+                clearTimeout(timer);
+            }
         }
+        if (dataJson === undefined) throw lastErr;
         
         if (!Array.isArray(dataJson)) throw new Error("Dữ liệu không đúng định dạng mảng.");
 

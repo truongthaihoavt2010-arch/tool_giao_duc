@@ -508,6 +508,131 @@ function updateChart() {
     diffChartInstance.update();
 }
 
+// ======= DIFFICULTY QUOTA SYSTEM =======
+// Tính toán chính xác số câu hỏi cho từng mức độ khó
+function calculateDifficultyQuota(totalQuestions) {
+    const pctEasy = parseInt(document.getElementById('diffEasy').value) || 0;
+    const pctMed = parseInt(document.getElementById('diffMedium').value) || 0;
+    const pctHard = parseInt(document.getElementById('diffHard').value) || 0;
+    const N = totalQuestions || parseInt(document.getElementById('numQuestions').value) || 0;
+    
+    let numEasy = Math.round(N * pctEasy / 100);
+    let numHard = Math.round(N * pctHard / 100);
+    let numMed = N - numEasy - numHard;
+    
+    // Đảm bảo không âm
+    if (numMed < 0) { numMed = 0; numEasy = Math.min(numEasy, N); numHard = N - numEasy; }
+    
+    return { 'Dễ': numEasy, 'Trung bình': numMed, 'Khó': numHard, total: N, pctTotal: pctEasy + pctMed + pctHard };
+}
+
+// Cập nhật hiển thị số câu hỏi theo mức độ khó real-time
+function updateDifficultyQuotaDisplay() {
+    const quota = calculateDifficultyQuota();
+    const elEasy = document.getElementById('diffEasyCount');
+    const elMed = document.getElementById('diffMediumCount');
+    const elHard = document.getElementById('diffHardCount');
+    const elWarn = document.getElementById('diffWarning');
+    
+    if (elEasy) elEasy.innerText = quota.total > 0 ? `(${quota['Dễ']} câu)` : '';
+    if (elMed) elMed.innerText = quota.total > 0 ? `(${quota['Trung bình']} câu)` : '';
+    if (elHard) elHard.innerText = quota.total > 0 ? `(${quota['Khó']} câu)` : '';
+    
+    if (elWarn) {
+        if (quota.pctTotal !== 100) {
+            elWarn.style.display = 'block';
+            elWarn.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Tổng tỷ lệ hiện tại: ${quota.pctTotal}% (phải bằng 100%!)`;
+        } else {
+            elWarn.style.display = 'none';
+        }
+    }
+}
+
+// Chuẩn hóa nhãn độ khó từ AI (xử lý mọi biến thể)
+function normalizeDifficulty(diffStr) {
+    if (!diffStr || typeof diffStr !== 'string') return 'Trung bình';
+    const d = diffStr.toLowerCase().trim();
+    
+    // Map Dễ
+    if (d === 'dễ' || d === 'de' || d === 'easy' || d === 'dê' || d === 'nhận biết'
+        || d === 'nhan biet' || d === 'recognition' || d === 'basic') return 'Dễ';
+    
+    // Map Khó
+    if (d === 'khó' || d === 'kho' || d === 'hard' || d === 'difficult' || d === 'vận dụng cao'
+        || d === 'van dung cao' || d === 'vận dụng' || d === 'van dung' || d === 'advanced'
+        || d === 'phân tích' || d === 'phan tich' || d === 'analysis') return 'Khó';
+    
+    // Map Trung bình (mặc định)
+    if (d === 'trung bình' || d === 'trung binh' || d === 'tb' || d === 'medium'
+        || d === 'thông hiểu' || d === 'thong hieu' || d === 'moderate'
+        || d === 'understanding' || d === 'normal') return 'Trung bình';
+    
+    return 'Trung bình'; // Fallback
+}
+
+// Thuật toán cân bằng hạn ngạch mức độ khó
+// Đảm bảo kết quả khớp 100% quota Dễ/TB/Khó trong khi tôn trọng phân loại dạng câu hỏi
+function balanceDifficultyQuota(questions, diffQuota) {
+    if (!questions || questions.length === 0) return questions;
+    
+    // Bước 1: Chuẩn hóa tất cả nhãn difficulty
+    questions.forEach(q => { q.difficulty = normalizeDifficulty(q.difficulty); });
+    
+    // Bước 2: Đếm hiện trạng
+    let counts = { 'Dễ': 0, 'Trung bình': 0, 'Khó': 0 };
+    questions.forEach(q => { if (counts[q.difficulty] !== undefined) counts[q.difficulty]++; });
+    
+    const target = { 'Dễ': diffQuota['Dễ'], 'Trung bình': diffQuota['Trung bình'], 'Khó': diffQuota['Khó'] };
+    
+    // Bước 3: Nếu đã khớp hoàn hảo, trả về ngay
+    if (counts['Dễ'] === target['Dễ'] && counts['Trung bình'] === target['Trung bình'] && counts['Khó'] === target['Khó']) {
+        return questions;
+    }
+    
+    // Bước 4: Điều chỉnh - ưu tiên giữ nguyên nhãn AI gán, chỉ chuyển đổi các câu thừa
+    const levels = ['Dễ', 'Trung bình', 'Khó'];
+    
+    // Tìm mức thừa và mức thiếu
+    let surplus = {}; // mức -> số câu thừa
+    let deficit = {}; // mức -> số câu thiếu
+    levels.forEach(lv => {
+        let diff = counts[lv] - target[lv];
+        if (diff > 0) surplus[lv] = diff;
+        else if (diff < 0) deficit[lv] = -diff;
+    });
+    
+    // Chuyển câu từ nhóm thừa sang nhóm thiếu (ưu tiên chuyển mức gần nhất)
+    // Thứ tự ưu tiên: Dễ <-> Trung bình <-> Khó (chuyển mức lân cận trước)
+    const transferOrder = [
+        ['Dễ', 'Trung bình'], ['Trung bình', 'Dễ'],
+        ['Trung bình', 'Khó'], ['Khó', 'Trung bình'],
+        ['Dễ', 'Khó'], ['Khó', 'Dễ']
+    ];
+    
+    for (let [fromLv, toLv] of transferOrder) {
+        if (!surplus[fromLv] || surplus[fromLv] <= 0) continue;
+        if (!deficit[toLv] || deficit[toLv] <= 0) continue;
+        
+        let transferCount = Math.min(surplus[fromLv], deficit[toLv]);
+        let transferred = 0;
+        
+        for (let q of questions) {
+            if (transferred >= transferCount) break;
+            if (q.difficulty === fromLv) {
+                q.difficulty = toLv;
+                transferred++;
+            }
+        }
+        
+        surplus[fromLv] -= transferred;
+        deficit[toLv] -= transferred;
+        if (surplus[fromLv] <= 0) delete surplus[fromLv];
+        if (deficit[toLv] <= 0) delete deficit[toLv];
+    }
+    
+    return questions;
+}
+
 async function fetchChartData() {
     const url = document.getElementById('webhookUrl').value.trim();
     if (!url) return alert('Vui lòng dán Web App URL vào ô Bước 2 để kết nối.');
@@ -752,6 +877,13 @@ function buildPrompt(contextText) {
     const diffMed = document.getElementById('diffMedium').value;
     const diffHard = document.getElementById('diffHard').value;
 
+    // Tính toán chính xác số câu hỏi cho từng mức độ khó
+    const N = parseInt(numQuestions) || 0;
+    const diffQuota = calculateDifficultyQuota(N);
+    const numEasy = diffQuota['Dễ'];
+    const numMed = diffQuota['Trung bình'];
+    const numHard = diffQuota['Khó'];
+
     const checkboxes = document.querySelectorAll('input[name="qType"]:checked');
     let qTypes = [];
     let explicitRanges = [];
@@ -788,6 +920,15 @@ function buildPrompt(contextText) {
     if (qTypes.includes("fill")) formatInstructions += `- {"type": "fill", "question": "Đoạn văn có chỗ trống ___","options": ["gợi ý 1","gợi ý 2"],"correctAnswerText": "đáp án","difficulty": "Dễ","explanation": "..."}\n`;
     if (qTypes.includes("calc")) formatInstructions += `- {"type": "calc", "question": "Tính 1+1=","correctAnswerText": "2","difficulty": "Khó","explanation": "..."}\n  (VỚI DẠNG TÍNH TOÁN: "correctAnswerText" CHỈ ĐƯỢC ĐIỀN SỐ, TUYỆT ĐỐI KHÔNG KÈM CHỮ HAY ĐƠN VỊ)\n`;
 
+    // Xây dựng hướng dẫn phân bổ mức độ khó chi tiết
+    let difficultyInstructions = `\n\n=== QUY TẮC PHÂN BỔ MỨC ĐỘ KHÓ (CỰC KỲ QUAN TRỌNG) ===
+Trong TỔNG SỐ ${N} câu, bạn PHẢI tạo CHÍNH XÁC:
+- ${numEasy} câu mức "Dễ" (Nhận biết): Câu hỏi kiểm tra định nghĩa, khái niệm cơ bản, nhận biết thông tin trực tiếp từ bài học/tài liệu. Học sinh chỉ cần nhớ và nhận ra kiến thức.
+- ${numMed} câu mức "Trung bình" (Thông hiểu): Câu hỏi yêu cầu giải thích, phân biệt, so sánh hoặc áp dụng lý thuyết/công thức đơn giản. Học sinh cần hiểu bản chất vấn đề.
+- ${numHard} câu mức "Khó" (Vận dụng cao): Câu hỏi tư duy logic, tình huống thực tế phức tạp, phân tích đa chiều hoặc liên hệ thực tiễn cần suy luận nhiều bước. Câu hỏi phải thực sự thách thức.
+
+Giá trị "difficulty" của mỗi câu hỏi BẮT BUỘC phải là MỘT TRONG 3 chuỗi: "Dễ", "Trung bình", "Khó". KHÔNG ĐƯỢC dùng giá trị khác.\n`;
+
     return `Bạn là Robot tạo đề kiểm tra chuyên nghiệp.
 Nhiệm vụ: Tạo CHÍNH XÁC ĐÚNG SỐ LƯỢNG câu hỏi theo cấu trúc được giao. ĐÁNH SỐ THỨ TỰ CÂU HỎI RÕ RÀNG TRONG TÂM TRÍ BẠN ĐỂ KHÔNG TẠO THIẾU HAY THỪA.
 TỔNG SỐ CÂU YÊU CẦU: ${numQuestions} câu.
@@ -797,13 +938,84 @@ ${explicitRanges.join("\n")}
 Môn học: ${subject}, Khối lớp: ${grade}
 Chủ đề ra đề: ${topic}
 Mô tả chi tiết: ${descInput || "Không có"}
-Mức độ phân bổ: ${diffEasy}% Dễ, ${diffMed}% Trung bình, ${diffHard}% Khó.
+Phân bổ mức độ: CHÍNH XÁC ${numEasy} câu Dễ (${diffEasy}%), ${numMed} câu Trung bình (${diffMed}%), ${numHard} câu Khó (${diffHard}%).
 Tài liệu tham khảo (nếu có): ${contextText.substring(0, 15000)}
 
 LƯU Ý QUAN TRỌNG: 
 1. Hãy đếm kỹ số lượng câu hỏi mỗi loại bạn tạo ra. Đảm bảo tổng số lượng từng loại khớp chính xác 100% với yêu cầu trên.
 2. NẾU CÓ TÀI LIỆU THAM KHẢO, BẠN PHẢI ƯU TIÊN BÁM SÁT 100% NỘI DUNG TÀI LIỆU ĐỂ TẠO CÂU HỎI. CHỈ SỬ DỤNG KIẾN THỨC BÊN NGOÀI NẾU TÀI LIỆU KHÔNG ĐỦ THÔNG TIN.
-${formatInstructions}`;
+${formatInstructions}${difficultyInstructions}`;
+}
+
+// Sửa các lỗi JSON phổ biến của AI: dấu \ không hợp lệ (LaTeX như \frac), dấu phẩy thừa
+function sanitizeAIJson(str) {
+    return str
+        .replace(/\\(\\|["\/bfnrt]|u[0-9a-fA-F]{4})|\\/g, (m, valid) => valid ? m : '\\\\')
+        .replace(/,\s*([\]}])/g, '$1');
+}
+
+// Các lệnh LaTeX trùng với escape hợp lệ của JSON (\f, \b, \n, \r, \t) — nếu không xử lý,
+// "\frac" sẽ bị JSON.parse hiểu thành ký tự form-feed + "rac"
+const LATEX_ESCAPE_CLASH = /\\\\|\\(?=(?:frac|forall|flat|beta|bar|binom|bot|bullet|bigg?|Bigg?|begin|boxed|because|neq|nu|nabla|neg|notin|not|newline|right|rho|rangle|rceil|rfloor|rm|times|theta|tau|tan|textbf|textit|text|tfrac|therefore|tilde|triangle)(?![a-zA-Z]))/g;
+
+function protectLatex(str) {
+    return str.replace(LATEX_ESCAPE_CLASH, m => m === '\\\\' ? m : '\\\\');
+}
+
+function tryParseJSON(str) {
+    try { return JSON.parse(str); } catch (e) {}
+    try { return JSON.parse(sanitizeAIJson(str)); } catch (e) {}
+    return undefined;
+}
+
+// Parse mảng câu hỏi từ phản hồi AI, chịu được code fence, văn bản thừa và output bị cắt ngang
+function parseAIQuestionsJSON(content) {
+    if (!content || typeof content !== 'string') return null;
+    let text = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+    // Bỏ code fence (kể cả khi fence chưa đóng do output bị cắt)
+    const fence = text.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/i);
+    if (fence && fence[1].trim()) text = fence[1].trim();
+    text = protectLatex(text);
+
+    // 1. Thử parse toàn bộ
+    let whole = tryParseJSON(text);
+    if (whole !== undefined) {
+        if (Array.isArray(whole)) return whole;
+        if (whole && typeof whole === 'object') {
+            for (let key in whole) if (Array.isArray(whole[key])) return whole[key];
+            if (whole.question) return [whole];
+        }
+    }
+
+    // 2. Quét từng object hoàn chỉnh ở cấp cao nhất (bỏ qua object cuối bị cắt dở)
+    const start = text.indexOf('[');
+    const from = start !== -1 ? start + 1 : 0;
+    const items = [];
+    let depth = 0, inStr = false, esc = false, objStart = -1;
+    for (let i = from; i < text.length; i++) {
+        const c = text[i];
+        if (inStr) {
+            if (esc) esc = false;
+            else if (c === '\\') esc = true;
+            else if (c === '"') inStr = false;
+            continue;
+        }
+        if (c === '"') inStr = true;
+        else if (c === '{') { if (depth === 0) objStart = i; depth++; }
+        else if (c === '}') {
+            depth--;
+            if (depth === 0 && objStart !== -1) {
+                const obj = tryParseJSON(text.substring(objStart, i + 1));
+                if (obj && typeof obj === 'object' && obj.question) items.push(obj);
+                objStart = -1;
+            }
+            if (depth < 0) depth = 0;
+        }
+        else if (c === ']' && depth === 0 && start !== -1) break;
+    }
+    if (items.length > 0) console.log("[AI] Phục hồi JSON theo từng câu. Lấy được", items.length, "câu.");
+    return items;
 }
 
 // Hàm gọi API chung cho cả Tạo Đề và Chatbot
@@ -830,7 +1042,7 @@ async function callAI(messagesArr, isChat = false) {
                 body: JSON.stringify({ 
                     "model": DEEPSEEK_MODEL, 
                     "messages": messages, 
-                    "max_tokens": 4096 
+                    "max_tokens": 8192 
                 })
             });
             if (response.ok) {
@@ -853,7 +1065,7 @@ async function callAI(messagesArr, isChat = false) {
         try {
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST", headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ "model": model, "messages": messages, "max_tokens": 4000 })
+                body: JSON.stringify({ "model": model, "messages": messages, "max_tokens": 8000 })
             });
             if (response.ok) return await response.json();
             else errorLogs.push(`OpenRouter (${model}): ` + await response.text());
@@ -864,13 +1076,13 @@ async function callAI(messagesArr, isChat = false) {
     try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST", headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ "model": "llama-3.1-8b-instant", "messages": messages, "max_tokens": 2000 })
+            body: JSON.stringify({ "model": "llama-3.1-8b-instant", "messages": messages, "max_tokens": 8000 })
         });
         if (response.ok) return await response.json();
         else errorLogs.push("Groq: " + await response.text());
     } catch(e) { errorLogs.push("Groq Network Error: " + e.message); }
     
-    throw new Error("Tất cả API thất bại.\\n" + errorLogs.join("\\n"));
+    throw new Error("Tất cả API thất bại.\n" + errorLogs.join("\n"));
 }
 
 async function startGeneration(isAutoMode = false) {
@@ -912,41 +1124,13 @@ async function startGeneration(isAutoMode = false) {
             const res = await callAI([{"role": "user", "content": prompt}], false);
             const content = res.choices[0].message.content;
             
-            let jsonStr = content;
-            try {
-                let match = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-                if (match && match[1]) {
-                    jsonStr = match[1];
-                } else {
-                    let startArr = content.indexOf('[');
-                    let endArr = content.lastIndexOf(']');
-                    if (startArr !== -1 && endArr !== -1 && endArr > startArr) {
-                        jsonStr = content.substring(startArr, endArr + 1);
-                    }
-                }
-                data = JSON.parse(jsonStr);
-                
-                if (!Array.isArray(data) && typeof data === 'object') {
-                    for (let key in data) {
-                        if (Array.isArray(data[key])) {
-                            data = data[key];
-                            break;
-                        }
-                    }
-                }
-            } catch(e) {
-                let lastGoodSplit = jsonStr.lastIndexOf('},{');
-                if (lastGoodSplit !== -1) {
-                    let recovered = jsonStr.substring(0, lastGoodSplit + 1) + ']';
-                    try {
-                        data = JSON.parse(recovered);
-                        console.log("Đã phục hồi JSON bị đứt đoạn. Lấy được", data.length, "câu.");
-                    } catch(err) { data = null; }
-                }
-                
-                if (!data) {
-                    throw new Error("AI không trả về đúng định dạng JSON. Vui lòng thử lại.");
-                }
+            if (res.choices[0].finish_reason === 'length') {
+                console.warn("[AI] Output bị cắt do vượt giới hạn token, sẽ cố gắng phục hồi các câu hoàn chỉnh.");
+            }
+            data = parseAIQuestionsJSON(content);
+            if (!data || data.length === 0) {
+                console.error("[AI] Nội dung AI trả về không parse được:", content);
+                throw new Error("AI không trả về đúng định dạng JSON. Vui lòng thử lại.");
             }
         }
 
@@ -1012,6 +1196,10 @@ async function startGeneration(isAutoMode = false) {
                     finalData = finalData.concat(unusedQuestions.slice(0, missingCount));
                 }
             }
+
+            // ======= CÂN BẰNG MỨC ĐỘ KHÓ (Strict Difficulty Quota Balancing) =======
+            const diffQuota = calculateDifficultyQuota(finalData.length);
+            finalData = balanceDifficultyQuota(finalData, diffQuota);
 
             data = finalData;
             if (!data || data.length === 0) {
@@ -1127,6 +1315,27 @@ function openReviewModal() {
     if(!currentExamData || currentExamData.length === 0) {
         body.innerHTML = '<p>Không có dữ liệu đề thi.</p>';
     } else {
+        // ======= THANH TÓM TẮT MA TRẬN ĐỘ KHÓ =======
+        let diffStats = { 'Dễ': 0, 'Trung bình': 0, 'Khó': 0 };
+        currentExamData.forEach(q => {
+            let d = normalizeDifficulty(q.difficulty);
+            if (diffStats[d] !== undefined) diffStats[d]++;
+        });
+        const totalQ = currentExamData.length;
+        const pctE = totalQ > 0 ? Math.round(diffStats['Dễ'] / totalQ * 100) : 0;
+        const pctM = totalQ > 0 ? Math.round(diffStats['Trung bình'] / totalQ * 100) : 0;
+        const pctH = totalQ > 0 ? Math.round(diffStats['Khó'] / totalQ * 100) : 0;
+        
+        body.innerHTML += `
+        <div style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 14px 18px; border-radius: 10px; margin-bottom: 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border: 1px solid #dee2e6;">
+            <div style="font-weight: 700; color: #333; font-size: 14px;"><i class="fa-solid fa-chart-pie" style="color: var(--primary); margin-right: 5px;"></i> Ma trận đề: ${totalQ} câu</div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <span style="background: #00b894; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">🟢 Dễ: ${diffStats['Dễ']} (${pctE}%)</span>
+                <span style="background: #fdcb6e; color: #333; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">🟡 TB: ${diffStats['Trung bình']} (${pctM}%)</span>
+                <span style="background: #d63031; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">🔴 Khó: ${diffStats['Khó']} (${pctH}%)</span>
+            </div>
+        </div>`;
+
         currentExamData.forEach((q, idx) => {
             let optionsHtml = '';
             if (q.type === 'mcq' || q.type === 'tf' || (!q.type && q.options)) {
@@ -1148,9 +1357,19 @@ function openReviewModal() {
                 optionsHtml += `<div style="color: var(--primary); font-weight: bold;">Đáp án đúng: ${q.correctAnswerText} <i class="fa-solid fa-check"></i></div>`;
             }
             
+            // Badge màu sắc cho mức độ khó + dropdown chỉnh sửa nhanh
+            let diffColor = q.difficulty === 'Dễ' ? '#00b894' : (q.difficulty === 'Khó' ? '#d63031' : '#fdcb6e');
+            let diffTextColor = q.difficulty === 'Trung bình' ? '#333' : 'white';
+            let diffBadgeHtml = `
+                <select onchange="changeQuestionDifficulty(${idx}, this.value)" style="font-size:11px; padding:2px 6px; border-radius:4px; border:1px solid #ddd; background:${diffColor}; color:${diffTextColor}; font-weight:600; cursor:pointer; margin-left:5px; appearance:auto;">
+                    <option value="Dễ" ${q.difficulty === 'Dễ' ? 'selected' : ''} style="background:white;color:#333;">🟢 Dễ</option>
+                    <option value="Trung bình" ${q.difficulty === 'Trung bình' ? 'selected' : ''} style="background:white;color:#333;">🟡 Trung bình</option>
+                    <option value="Khó" ${q.difficulty === 'Khó' ? 'selected' : ''} style="background:white;color:#333;">🔴 Khó</option>
+                </select>`;
+            
             body.innerHTML += `
             <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid var(--border-color);">
-                <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Câu ${idx + 1} <span style="font-size:11px; background:#f0f0f0; padding:2px 6px; border-radius:4px; margin-left: 5px; font-weight:normal; color:#666;">${q.difficulty || ''}</span></div>
+                <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Câu ${idx + 1} ${diffBadgeHtml}</div>
                 <div style="margin-bottom: 10px;">${q.question}</div>
                 <div style="padding-left: 10px;">${optionsHtml}</div>
                 <div style="margin-top: 10px; font-size: 13px; color: #666; background: #fdfdfd; padding: 10px; border-left: 3px solid var(--primary);">
@@ -1162,6 +1381,14 @@ function openReviewModal() {
     }
     
     document.getElementById("reviewModal").classList.add("active");
+}
+
+// Cho phép giáo viên thay đổi mức độ khó trực tiếp trên Review Modal
+function changeQuestionDifficulty(idx, newDiff) {
+    if (currentExamData[idx]) {
+        currentExamData[idx].difficulty = newDiff;
+        openReviewModal(); // Re-render để cập nhật stats bar
+    }
 }
 
 function closeReviewModal() {
@@ -1295,6 +1522,7 @@ function updateTotalQuestions() {
     });
     document.getElementById('numQuestions').value = total;
     if (typeof updateChart === 'function') updateChart();
+    if (typeof updateDifficultyQuotaDisplay === 'function') updateDifficultyQuotaDisplay();
 }
 // Tải file Word mẫu
 function downloadWordTemplate() {
@@ -1367,7 +1595,9 @@ async function exportHTML() {
     templateContent = templateContent.replace('const WEBHOOK_URL = ""; // Template placeholder', `const WEBHOOK_URL = "${webhookUrl}";`);
     templateContent = templateContent.replace('const EXAM_TIME = 45; // Template placeholder', `const EXAM_TIME = ${examTime};`);
     templateContent = templateContent.replace('const SUBJECT = "Chung"; // Template placeholder', `const SUBJECT = "${document.getElementById('subject').value || "Chung"}";`);
-    templateContent = templateContent.replace('const ALLOWED_CLASSES = ""; // Template placeholder', `const ALLOWED_CLASSES = "${document.getElementById('grade').value || ""}";`);
+    let rawGrade = document.getElementById('grade').value || "";
+    let normalizedGrade = rawGrade.replace(/;/g, ',');
+    templateContent = templateContent.replace('const ALLOWED_CLASSES = ""; // Template placeholder', `const ALLOWED_CLASSES = "${normalizedGrade}";`);
 
     const suggestedName = `${document.getElementById('subject').value}_TracNghiem.html`.replace(/\s+/g, '_');
     let finalName = suggestedName;
@@ -1395,4 +1625,6 @@ async function exportHTML() {
 window.onload = () => {
     updateStatsUI();
     initCharts();
+    // Khởi tạo hiển thị phân bổ mức độ khó
+    if (typeof updateDifficultyQuotaDisplay === 'function') updateDifficultyQuotaDisplay();
 };

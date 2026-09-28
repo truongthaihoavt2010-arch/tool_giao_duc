@@ -104,8 +104,8 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Lớp áp dụng</label>
-                            <input type="text" id="grade" class="form-control" placeholder="Ví dụ: 6A1, 6A2">
+                            <label>Lớp áp dụng (phân cách bằng dấu phẩy hoặc chấm phẩy)</label>
+                            <input type="text" id="grade" class="form-control" placeholder="Ví dụ: 7A1, 7A2, 7A3 hoặc 7A1; 7A2; 7A3">
                         </div>
                     </div>
                     <div class="form-col">
@@ -140,9 +140,10 @@
                         <div class="difficulty-chart-area">
                             <div class="chart-container" style="width: 120px;"><canvas id="diffChart"></canvas></div>
                             <div class="difficulty-inputs">
-                                <div class="diff-input-row"><span><span class="legend-dot" style="background:var(--c-green); display:inline-block; margin-right:5px;"></span> Dễ</span> <input type="number" id="diffEasy" value="40" onchange="updateChart()"> %</div>
-                                <div class="diff-input-row"><span><span class="legend-dot" style="background:var(--c-orange); display:inline-block; margin-right:5px;"></span> TB</span> <input type="number" id="diffMedium" value="40" onchange="updateChart()"> %</div>
-                                <div class="diff-input-row"><span><span class="legend-dot" style="background:var(--c-red); display:inline-block; margin-right:5px;"></span> Khó</span> <input type="number" id="diffHard" value="20" onchange="updateChart()"> %</div>
+                                <div class="diff-input-row"><span><span class="legend-dot" style="background:var(--c-green); display:inline-block; margin-right:5px;"></span> Dễ</span> <input type="number" id="diffEasy" value="40" min="0" max="100" onchange="updateChart(); updateDifficultyQuotaDisplay()" oninput="updateDifficultyQuotaDisplay()"> % <span id="diffEasyCount" style="font-size:11px; color:var(--c-green); font-weight:600; margin-left:4px;"></span></div>
+                                <div class="diff-input-row"><span><span class="legend-dot" style="background:var(--c-orange); display:inline-block; margin-right:5px;"></span> TB</span> <input type="number" id="diffMedium" value="40" min="0" max="100" onchange="updateChart(); updateDifficultyQuotaDisplay()" oninput="updateDifficultyQuotaDisplay()"> % <span id="diffMediumCount" style="font-size:11px; color:var(--c-orange); font-weight:600; margin-left:4px;"></span></div>
+                                <div class="diff-input-row"><span><span class="legend-dot" style="background:var(--c-red); display:inline-block; margin-right:5px;"></span> Khó</span> <input type="number" id="diffHard" value="20" min="0" max="100" onchange="updateChart(); updateDifficultyQuotaDisplay()" oninput="updateDifficultyQuotaDisplay()"> % <span id="diffHardCount" style="font-size:11px; color:var(--c-red); font-weight:600; margin-left:4px;"></span></div>
+                                <div id="diffWarning" style="display:none; font-size:11px; color:#d63031; font-weight:600; margin-top:6px; padding:4px 8px; background:rgba(214,48,49,0.08); border-radius:4px;"><i class="fa-solid fa-triangle-exclamation"></i> Tổng tỷ lệ phải bằng 100%!</div>
                             </div>
                         </div>
                     </div>

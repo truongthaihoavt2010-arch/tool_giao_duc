@@ -867,10 +867,14 @@ function appendChatMessage(text, sender) {
 }
 
 // ======= 5. AI GENERATOR LOGIC =======
-function buildPrompt(contextText) {
+// countsOverride: {mcq, tf, fill, calc} — dùng khi cần tạo bù số câu còn thiếu
+// avoidQuestions: danh sách câu hỏi đã có, để AI không tạo trùng
+function buildPrompt(contextText, countsOverride = null, avoidQuestions = []) {
     const subject = document.getElementById('subject').value || "Không xác định";
     const grade = document.getElementById('grade').value || "Không xác định";
-    const numQuestions = document.getElementById('numQuestions').value;
+    const numQuestions = countsOverride
+        ? Object.values(countsOverride).reduce((a, b) => a + b, 0)
+        : document.getElementById('numQuestions').value;
     const topic = document.getElementById('topicInput').value || "";
     const descInput = document.getElementById('descInput') ? document.getElementById('descInput').value.trim() : "";
     const diffEasy = document.getElementById('diffEasy').value;
@@ -884,26 +888,32 @@ function buildPrompt(contextText) {
     const numMed = diffQuota['Trung bình'];
     const numHard = diffQuota['Khó'];
 
-    const checkboxes = document.querySelectorAll('input[name="qType"]:checked');
+    let typeCounts = [];
+    if (countsOverride) {
+        for (let t in countsOverride) if (countsOverride[t] > 0) typeCounts.push([t, countsOverride[t]]);
+    } else {
+        document.querySelectorAll('input[name="qType"]:checked').forEach(cb => {
+            typeCounts.push([cb.value, parseInt(document.getElementById('numType_' + cb.value).value) || 0]);
+        });
+    }
     let qTypes = [];
     let explicitRanges = [];
     let currentIndex = 1;
 
-    checkboxes.forEach(cb => {
-        qTypes.push(cb.value);
-        let num = parseInt(document.getElementById('numType_' + cb.value).value) || 0;
+    typeCounts.forEach(([type, num]) => {
+        qTypes.push(type);
         let typeName = "";
-        if (cb.value === 'mcq') typeName = "Trắc nghiệm 4 lựa chọn";
-        if (cb.value === 'tf') typeName = "Đúng/Sai";
-        if (cb.value === 'fill') typeName = "Điền khuyết";
-        if (cb.value === 'calc') typeName = "Tính toán / Tự luận";
-        
+        if (type === 'mcq') typeName = "Trắc nghiệm 4 lựa chọn";
+        if (type === 'tf') typeName = "Đúng/Sai";
+        if (type === 'fill') typeName = "Điền khuyết";
+        if (type === 'calc') typeName = "Tính toán / Tự luận";
+
         if (num > 0) {
             let endIdx = currentIndex + num - 1;
             if (num === 1) {
-                explicitRanges.push(`- CÂU SỐ ${currentIndex}: Tạo 1 câu dạng ${typeName} (Bắt buộc dùng "type": "${cb.value}").`);
+                explicitRanges.push(`- CÂU SỐ ${currentIndex}: Tạo 1 câu dạng ${typeName} (Bắt buộc dùng "type": "${type}").`);
             } else {
-                explicitRanges.push(`- TỪ CÂU SỐ ${currentIndex} ĐẾN CÂU SỐ ${endIdx}: Tạo ${num} câu dạng ${typeName} (Bắt buộc dùng "type": "${cb.value}").`);
+                explicitRanges.push(`- TỪ CÂU SỐ ${currentIndex} ĐẾN CÂU SỐ ${endIdx}: Tạo ${num} câu dạng ${typeName} (Bắt buộc dùng "type": "${type}").`);
             }
             currentIndex = endIdx + 1;
         }
@@ -944,7 +954,9 @@ Tài liệu tham khảo (nếu có): ${contextText.substring(0, 15000)}
 LƯU Ý QUAN TRỌNG: 
 1. Hãy đếm kỹ số lượng câu hỏi mỗi loại bạn tạo ra. Đảm bảo tổng số lượng từng loại khớp chính xác 100% với yêu cầu trên.
 2. NẾU CÓ TÀI LIỆU THAM KHẢO, BẠN PHẢI ƯU TIÊN BÁM SÁT 100% NỘI DUNG TÀI LIỆU ĐỂ TẠO CÂU HỎI. CHỈ SỬ DỤNG KIẾN THỨC BÊN NGOÀI NẾU TÀI LIỆU KHÔNG ĐỦ THÔNG TIN.
-${formatInstructions}${difficultyInstructions}`;
+3. Số lượng câu hỏi ở phần CHI TIẾT phía trên là bắt buộc, kể cả khi phần "Mô tả chi tiết" ghi số lượng khác.
+4. Viết lời giải "explanation" ngắn gọn (1-2 câu) để không vượt quá độ dài cho phép.
+${avoidQuestions.length > 0 ? `5. KHÔNG được tạo lại các câu hỏi đã có sau đây (phải tạo câu MỚI, nội dung khác):\n${avoidQuestions.map(q => "- " + String(q).substring(0, 150)).join("\n")}\n` : ""}${formatInstructions}${difficultyInstructions}`;
 }
 
 // Sửa các lỗi JSON phổ biến của AI: dấu \ không hợp lệ (LaTeX như \frac), dấu phẩy thừa
@@ -1016,6 +1028,43 @@ function parseAIQuestionsJSON(content) {
     }
     if (items.length > 0) console.log("[AI] Phục hồi JSON theo từng câu. Lấy được", items.length, "câu.");
     return items;
+}
+
+// Chuẩn hóa "type" do AI đặt (tiếng Việt, tiếng Anh, thiếu type) về mcq/tf/fill/calc
+function normalizeQuestionType(q) {
+    const t = typeof q.type === 'string' ? q.type.toLowerCase().trim() : '';
+    if (['mcq', 'tf', 'fill', 'calc'].includes(t)) { q.type = t; return q; }
+    if (t.includes('trắc') || t.includes('multiple') || t.includes('choice')) q.type = 'mcq';
+    else if (t.includes('đúng') || t.includes('sai') || t.includes('true') || t.includes('false') || t === 'tf') q.type = 'tf';
+    else if (t.includes('điền') || t.includes('khuyết') || t.includes('fill') || t.includes('blank')) q.type = 'fill';
+    else if (t.includes('tính') || t.includes('luận') || t.includes('calc') || t.includes('essay')) q.type = 'calc';
+    else {
+        // Không có type hợp lệ: suy ra từ cấu trúc câu hỏi
+        const opts = Array.isArray(q.options) ? q.options : [];
+        if (opts.length === 2 && /đúng/i.test(opts[0]) && /sai/i.test(opts[1])) q.type = 'tf';
+        else if (opts.length >= 3 && q.correctAnswerIndex !== undefined) q.type = 'mcq';
+        else if (/_{2,}|\.{3,}/.test(q.question || '')) q.type = 'fill';
+        else if (q.correctAnswerText !== undefined || q.answer !== undefined) q.type = 'calc';
+    }
+    return q;
+}
+
+function countQuestionsByType(questions) {
+    const counts = { mcq: 0, tf: 0, fill: 0, calc: 0 };
+    questions.forEach(q => { if (counts[q.type] !== undefined) counts[q.type]++; });
+    return counts;
+}
+
+// Gọi AI với prompt tạo đề, trả về mảng câu hỏi đã chuẩn hóa type
+async function requestAIQuestions(prompt) {
+    const res = await callAI([{"role": "user", "content": prompt}], false);
+    const content = res.choices[0].message.content;
+    if (res.choices[0].finish_reason === 'length') {
+        console.warn("[AI] Output bị cắt do vượt giới hạn token, sẽ phục hồi các câu hoàn chỉnh và tạo bù phần thiếu.");
+    }
+    const questions = parseAIQuestionsJSON(content) || [];
+    if (questions.length === 0) console.error("[AI] Nội dung AI trả về không parse được:", content);
+    return questions.filter(q => q && typeof q === 'object').map(normalizeQuestionType);
 }
 
 // Hàm gọi API chung cho cả Tạo Đề và Chatbot
@@ -1101,7 +1150,9 @@ async function startGeneration(isAutoMode = false) {
     closeInputModal();
     
     document.getElementById('loadingOverlay').classList.add('active');
-    
+    const loadingSubtext = document.querySelector('#loadingOverlay .loading-subtext');
+    if (loadingSubtext) loadingSubtext.innerText = "Đang thiết lập ma trận đề và xuất dữ liệu.";
+
     try {
         let data = null;
         const topic = document.getElementById('topicInput').value.trim();
@@ -1120,32 +1171,38 @@ async function startGeneration(isAutoMode = false) {
             }
             await new Promise(r => setTimeout(r, 1000));
         } else {
-            const prompt = buildPrompt(contextText);
-            const res = await callAI([{"role": "user", "content": prompt}], false);
-            const content = res.choices[0].message.content;
-            
-            if (res.choices[0].finish_reason === 'length') {
-                console.warn("[AI] Output bị cắt do vượt giới hạn token, sẽ cố gắng phục hồi các câu hoàn chỉnh.");
-            }
-            data = parseAIQuestionsJSON(content);
-            if (!data || data.length === 0) {
-                console.error("[AI] Nội dung AI trả về không parse được:", content);
+            data = await requestAIQuestions(buildPrompt(contextText));
+            if (data.length === 0) {
                 throw new Error("AI không trả về đúng định dạng JSON. Vui lòng thử lại.");
+            }
+
+            // Tạo bù nếu AI trả thiếu câu (do bị cắt ngang hoặc đếm sai), tối đa 3 lượt
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                const have = countQuestionsByType(data);
+                let missing = {}, totalMissing = 0;
+                for (let t in requiredCounts) {
+                    missing[t] = Math.max(0, requiredCounts[t] - have[t]);
+                    totalMissing += missing[t];
+                }
+                if (totalMissing === 0) break;
+                console.log(`[AI] Thiếu ${totalMissing} câu, tạo bù lượt ${attempt}:`, missing);
+                if (loadingSubtext) loadingSubtext.innerText = `AI đang tạo bù ${totalMissing} câu còn thiếu (lượt ${attempt})...`;
+                try {
+                    const extra = await requestAIQuestions(buildPrompt(contextText, missing, data.map(q => q.question)));
+                    if (extra.length === 0) continue;
+                    data = data.concat(extra);
+                } catch (e) {
+                    console.warn("[AI] Tạo bù thất bại:", e.message);
+                    break;
+                }
             }
         }
 
         if (data && Array.isArray(data)) {
             let groupedData = { 'mcq': [], 'tf': [], 'fill': [], 'calc': [] };
             data.forEach(q => {
-                // Sửa lỗi AI tự đặt type linh tinh (nếu có)
-                if (q.type && typeof q.type === 'string') {
-                    let t = q.type.toLowerCase();
-                    if (t.includes('trắc')) q.type = 'mcq';
-                    else if (t.includes('đúng') || t.includes('sai')) q.type = 'tf';
-                    else if (t.includes('điền') || t.includes('khuyết')) q.type = 'fill';
-                    else if (t.includes('tính') || t.includes('luận')) q.type = 'calc';
-                }
-                
+                normalizeQuestionType(q);
+
                 // Chuẩn hóa correctAnswerText nếu AI dùng key khác
                 if ((q.type === 'fill' || q.type === 'calc') && q.correctAnswerText === undefined) {
                     q.correctAnswerText = q.correctAnswer || q.answer || q.correct_answer || q.correct || "";
@@ -1204,6 +1261,9 @@ async function startGeneration(isAutoMode = false) {
             data = finalData;
             if (!data || data.length === 0) {
                 throw new Error("Không thể tạo đúng cấu trúc câu hỏi theo yêu cầu (Có thể tài liệu quá ngắn hoặc API quá tải).");
+            }
+            if (isAutoMode && data.length < totalRequested) {
+                alert(`Lưu ý: Yêu cầu ${totalRequested} câu nhưng AI chỉ tạo được ${data.length} câu hợp lệ (đã thử tạo bù 3 lần). Bạn có thể tạo lại hoặc bổ sung thủ công.`);
             }
         }
 

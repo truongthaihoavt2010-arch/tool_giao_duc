@@ -662,10 +662,17 @@ async function fetchChartData() {
             let score = parseFloat(row.score) || 0;
             let dateStr = "Chưa rõ";
             if (row.date && typeof row.date === 'string') {
-                let parts = row.date.split(" ");
-                if (parts.length > 0) {
-                    let dParts = parts[0].split("/");
-                    if (dParts.length >= 2) dateStr = dParts[0] + "/" + dParts[1];
+                let dm = row.date.match(/^(\d{1,2})\/(\d{1,2})/);
+                if (dm) {
+                    dateStr = dm[1].padStart(2, '0') + "/" + dm[2].padStart(2, '0');
+                } else {
+                    // Apps Script bản cũ: Sheet tự đổi thời gian nộp thành kiểu ngày -> JSON dạng ISO
+                    let d = new Date(row.date);
+                    if (!isNaN(d)) {
+                        let vn = new Date(d.getTime() + 7 * 3600 * 1000);
+                        dateStr = String(vn.getUTCDate()).padStart(2, '0') + "/" + String(vn.getUTCMonth() + 1).padStart(2, '0');
+                        row.date = dateStr + "/" + vn.getUTCFullYear() + " " + String(vn.getUTCHours()).padStart(2, '0') + ":" + String(vn.getUTCMinutes()).padStart(2, '0');
+                    }
                 }
             }
             if (!dateMap[dateStr]) dateMap[dateStr] = { totalScore: 0, count: 0 };
@@ -1687,4 +1694,7 @@ window.onload = () => {
     initCharts();
     // Khởi tạo hiển thị phân bổ mức độ khó
     if (typeof updateDifficultyQuotaDisplay === 'function') updateDifficultyQuotaDisplay();
+    // Tự tải dữ liệu từ Google Sheets nếu đã cấu hình URL
+    const webhookInput = document.getElementById('webhookUrl');
+    if (webhookInput && webhookInput.value.trim()) fetchChartData();
 };

@@ -644,7 +644,7 @@ async function fetchChartData() {
         let dataJson, lastErr;
         for (let attempt = 1; attempt <= 3 && dataJson === undefined; attempt++) {
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 45000);
+            const timer = setTimeout(() => controller.abort(), attempt < 3 ? 15000 : 40000); // Bình thường 3–5 giây; treo thì thử lại sớm
             try {
                 const response = await fetch(url, { signal: controller.signal });
                 if (!response.ok) throw new Error("Lỗi kết nối Web App URL (HTTP " + response.status + "). Vui lòng kiểm tra lại đường link.");

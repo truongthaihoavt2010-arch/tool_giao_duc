@@ -633,6 +633,31 @@ function balanceDifficultyQuota(questions, diffQuota) {
     return questions;
 }
 
+// Thời gian nộp (dd/MM/yyyy HH:mm:ss hoặc ISO) -> mili giây
+function parseSubmitTime(v) {
+    if (!v) return NaN;
+    const m = String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) return new Date(+m[3], m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)).getTime();
+    return Date.parse(v);
+}
+
+// Bỏ qua bài nộp trùng: cùng tên + lớp + môn + hình thức + điểm, nộp cách nhau dưới 2 phút (giữ lần đầu)
+function dedupeSubmissions(rows) {
+    const norm = v => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const order = rows.map((r, i) => ({ r, i, t: parseSubmitTime(r.date) }))
+        .sort((a, b) => (isNaN(a.t) || isNaN(b.t)) ? a.i - b.i : a.t - b.t);
+    const lastKept = {}, drop = new Set();
+    for (const { r, i, t } of order) {
+        if (isNaN(t)) continue;
+        const score = parseFloat(String(r.score ?? '').replace(',', '.'));
+        const key = [norm(r.name), norm(r.className), norm(r.subject), norm(r.examTime), isNaN(score) ? norm(r.score) : score.toFixed(2)].join('|');
+        if (lastKept[key] !== undefined && t - lastKept[key] < 120000) drop.add(i);
+        else lastKept[key] = t;
+    }
+    if (drop.size) console.info(`[Google Sheets] Bỏ qua ${drop.size} bài nộp trùng`);
+    return rows.filter((_, i) => !drop.has(i));
+}
+
 async function fetchChartData() {
     const url = document.getElementById('webhookUrl').value.trim();
     if (!url) return alert('Vui lòng dán Web App URL vào ô Bước 2 để kết nối.');
@@ -668,6 +693,7 @@ async function fetchChartData() {
         if (dataJson === undefined) throw lastErr;
         
         if (!Array.isArray(dataJson)) throw new Error("Dữ liệu không đúng định dạng mảng.");
+        dataJson = dedupeSubmissions(dataJson);
 
         globalGoogleSheetData = dataJson;
         renderResultsClasses();
@@ -747,7 +773,8 @@ function renderResultsClasses() {
         if (row.className) classes.add(row.className.trim());
     });
     
-    let sortedClasses = Array.from(classes).sort();
+    // Sắp xếp tự nhiên: 6A1, 6A2, ..., 6A10, 7A1
+    let sortedClasses = Array.from(classes).sort((a, b) => a.localeCompare(b, 'vi', { numeric: true, sensitivity: 'base' }));
     sortedClasses.forEach(c => {
         let opt = document.createElement('option');
         opt.value = c;

@@ -420,6 +420,49 @@
                     <textarea readonly style="width: 100%; height: 320px; font-family: monospace; font-size: 13px; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: #f8f9fa;">var HEADERS = ["STT", "HỌ TÊN", "MÔN", "HÌNH THỨC KT", "LỚP", "THỜI GIAN NỘP", "ĐIỂM SỐ", "MÃ BÀI NỘP"];
 var TZ = "GMT+7";
 
+var DUP_WINDOW_MS = 2 * 60 * 1000; // Bài giống hệt nộp lại trong 2 phút = bài trùng
+
+// Khóa so sánh bài trùng: tên (không phân biệt hoa thường, khoảng trắng) + lớp + môn + hình thức + điểm
+function dupKey_(name, className, subject, examTime, score) {
+  var norm = function (v) { return String(v == null ? "" : v).trim().toLowerCase().replace(/\s+/g, " "); };
+  var s = parseFloat(String(score).replace(",", "."));
+  return [norm(name), norm(className), norm(subject), norm(examTime), isNaN(s) ? norm(score) : s.toFixed(2)].join("|");
+}
+
+/**
+ * DỌN BÀI NỘP TRÙNG ĐÃ CÓ TRONG SHEET (chạy tay 1 lần trong trình soạn thảo Apps Script):
+ * chọn hàm "xoaBaiNopTrung" ở thanh công cụ rồi bấm "Chạy".
+ * Xóa các dòng giống hệt dòng trước (cùng tên, lớp, môn, hình thức, điểm) nộp cách nhau dưới 2 phút,
+ * giữ lại lần nộp đầu tiên. NÊN tạo bản sao Sheet trước (Tệp > Tạo bản sao).
+ */
+function xoaBaiNopTrung() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getDataSheet_();
+    var last = sheet.getLastRow();
+    if (last < 3) return;
+    var data = sheet.getRange(2, 1, last - 1, 7).getValues();
+    var lastSeen = {}; // khóa -> thời gian lần nộp được giữ gần nhất
+    var toDelete = [];
+    for (var i = 0; i < data.length; i++) {
+      var t = data[i][5] instanceof Date ? data[i][5].getTime() : NaN;
+      var key = dupKey_(data[i][1], data[i][4], data[i][2], data[i][3], data[i][6]);
+      if (!isNaN(t) && lastSeen[key] !== undefined && t - lastSeen[key] >= 0 && t - lastSeen[key] < DUP_WINDOW_MS) {
+        toDelete.push(i + 2); // số dòng trong Sheet
+      } else if (!isNaN(t)) {
+        lastSeen[key] = t;
+      }
+    }
+    // Xóa từ dưới lên để không lệch số dòng
+    for (var j = toDelete.length - 1; j >= 0; j--) sheet.deleteRow(toDelete[j]);
+    clearCache_();
+    Logger.log("Đã xóa " + toDelete.length + " bài nộp trùng.");
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // Luôn ghi vào tab đầu tiên, không phụ thuộc tab đang mở
 function getDataSheet_() {
   return SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
@@ -459,8 +502,26 @@ function doPost(e) {
       if (found) return jsonOut_({ status: "success", duplicate: true });
     }
 
-    var stt = sheet.getLastRow(); // Dòng 1 là tiêu đề nên STT = số dòng hiện có
+    // Chống trùng theo nội dung (kể cả file đề cũ không có mã bài nộp):
+    // cùng tên + lớp + môn + hình thức + điểm, nộp cách nhau dưới 2 phút
     var score = parseFloat(String(data.score).replace(",", "."));
+    var newKey = dupKey_(safeText_(data.name), safeText_(data.className), safeText_(data.subject),
+                         safeText_(data.examTime) + " Phút", isNaN(score) ? data.score : score);
+    var last = sheet.getLastRow();
+    if (last > 1) {
+      var n = Math.min(100, last - 1); // Chỉ xét 100 bài nộp gần nhất cho nhanh
+      var recent = sheet.getRange(last - n + 1, 1, n, 7).getValues();
+      var now = new Date().getTime();
+      for (var r = recent.length - 1; r >= 0; r--) {
+        var t = recent[r][5] instanceof Date ? recent[r][5].getTime() : 0;
+        if (t && now - t < DUP_WINDOW_MS &&
+            dupKey_(recent[r][1], recent[r][4], recent[r][2], recent[r][3], recent[r][6]) === newKey) {
+          return jsonOut_({ status: "success", duplicate: true });
+        }
+      }
+    }
+
+    var stt = sheet.getLastRow(); // Dòng 1 là tiêu đề nên STT = số dòng hiện có
     sheet.appendRow([
       stt,
       safeText_(data.name),

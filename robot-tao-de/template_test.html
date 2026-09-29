@@ -384,6 +384,12 @@
                 e.preventDefault();
                 studentName = document.getElementById('studentName').value.trim();
                 className = document.getElementById('className').value.trim();
+                // Chặn làm lại rồi nộp thêm lần nữa trên cùng máy (tải lại trang, mở lại link...)
+                const done = studentName && className ? getSubmittedRecord() : null;
+                if (done) {
+                    alert(`Bạn "${studentName}" (lớp ${className}) đã nộp bài này lúc ${new Date(done.time).toLocaleString('vi-VN')} (điểm ${done.score}).\nMỗi học sinh chỉ được nộp một lần. Nếu cần làm lại, hãy báo giáo viên.`);
+                    return;
+                }
                 if(studentName && className) {
                     document.getElementById('info-name').innerText = studentName;
                     document.getElementById('info-class').innerText = className;
@@ -651,6 +657,30 @@
             doSubmit();
         }
 
+        // ======= GHI NHỚ BÀI ĐÃ NỘP TRÊN MÁY NÀY =======
+        const SUBMITTED_KEY = 'aiRobotSubmittedExams';
+
+        // Mã nhận diện đề: môn + thời gian + nội dung câu hỏi (mỗi file đề có mã riêng)
+        function examKey() {
+            const text = SUBJECT + '|' + EXAM_TIME + '|' + EXAM_DATA.map(q => q.question).join('|');
+            let h = 0;
+            for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
+            return 'e' + (h >>> 0).toString(36);
+        }
+        function studentKey() {
+            return examKey() + '|' + studentName.trim().toLowerCase().replace(/\s+/g, ' ') + '|' + className.trim().toLowerCase();
+        }
+        function getSubmittedRecord() {
+            try { return (JSON.parse(localStorage.getItem(SUBMITTED_KEY)) || {})[studentKey()] || null; } catch (e) { return null; }
+        }
+        function markExamSubmitted(score) {
+            try {
+                const all = JSON.parse(localStorage.getItem(SUBMITTED_KEY)) || {};
+                all[studentKey()] = { time: Date.now(), score: score };
+                localStorage.setItem(SUBMITTED_KEY, JSON.stringify(all));
+            } catch (e) {}
+        }
+
         // ======= GỬI ĐIỂM LÊN GOOGLE SHEETS =======
         const PENDING_KEY = 'aiRobotPendingScores';
 
@@ -658,8 +688,10 @@
         // hoặc ném lỗi nếu thất bại
         async function postScoreOnce(url, payload) {
             const body = new URLSearchParams(payload).toString();
+            // Chờ lâu (90 giây): Google có lúc mất gần 30 giây nhưng VẪN ghi điểm.
+            // Nếu hủy sớm rồi gửi lại sẽ tạo bài nộp trùng.
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 25000);
+            const timer = setTimeout(() => controller.abort(), 90000);
             try {
                 let res;
                 try {
@@ -764,7 +796,11 @@
         });
 
         async function doSubmit() {
+            // Chặn nộp lặp: bấm nhiều lần, hoặc hết giờ đúng lúc đang nộp
+            if (isSubmitted) return;
             isSubmitted = true;
+            const btnSubmit = document.getElementById('btn-submit');
+            if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.6'; btnSubmit.style.pointerEvents = 'none'; }
             clearInterval(timerInterval);
             
             // Show loading
@@ -776,6 +812,7 @@
                 if(isCorrect(i)) score++;
             }
             let scale10 = ((score / totalQ) * 10).toFixed(2);
+            markExamSubmitted(scale10);
 
             // Gửi dữ liệu lên Google Sheets (có xác nhận, thử lại, lưu tạm khi lỗi)
             let sendStatus = null;

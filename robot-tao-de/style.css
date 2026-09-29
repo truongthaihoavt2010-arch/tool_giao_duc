@@ -346,3 +346,9 @@ body {
 }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 .loading-text { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
+
+/* Tiêu đề cửa sổ (modal): tiêu đề bên trái, nút đóng bên phải */
+.modal-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; }
+.modal-header h2, .modal-header h3 { margin: 0; font-size: 18px; }
+.close-btn { background: none; border: 0; font-size: 20px; line-height: 1; cursor: pointer; color: var(--text-muted); padding: 4px 8px; border-radius: 6px; }
+.close-btn:hover { background: #f1f2f6; color: #2d3436; }

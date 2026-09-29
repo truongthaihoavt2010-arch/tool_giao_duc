@@ -1,96 +1,103 @@
 # 📖 Sổ Tay Dự Án: TOOL GIÁO DỤC (AI Robot)
 
 ## 1. 🎯 Tổng quan (Overview)
-- **Mục tiêu:** Xây dựng hệ sinh thái công cụ hỗ trợ giáo dục All-in-one miễn phí dành cho giáo viên, bao gồm:
-  - **Robot Tạo Đề bằng AI:** Công cụ sinh đề tự động bám sát ma trận và độ khó của giáo viên thiết lập, hỗ trợ xuất đề tự động dạng file làm bài trắc nghiệm HTML (nhúng Webhook thu thập điểm).
-  - **Sổ Điểm Điện Tử & Dashboard Quản Lý Điểm (EduScore):** Kết nối 2 chiều với Google Sheets thông qua Google Apps Script API để thống kê, xếp loại và vẽ biểu đồ kết quả học sinh.
-- **Công nghệ chính:** HTML5, CSS3, Vanilla JS (ES6+), Google Apps Script API, Chart.js, Python (build scripts).
-- **Nguyên lý cốt lõi:** Hoạt động hoàn toàn ở phía client (Client-side), lưu trữ cục bộ bằng `localStorage`, và truyền dữ liệu thông qua webhook Apps Script.
+- **Mục tiêu:** Hệ sinh thái công cụ hỗ trợ giáo dục miễn phí cho giáo viên:
+  - **Robot Tạo Đề bằng AI:** sinh đề theo ma trận độ khó, xuất file làm bài trắc nghiệm HTML hoặc **đăng lên GitHub Pages và lấy link** gửi học sinh; điểm gửi về Google Sheets.
+  - **Quản Lý Điểm (EduScore):** đọc điểm từ Google Sheets, thống kê xếp loại, bảng điểm, xếp hạng, biểu đồ.
+- **Công nghệ:** HTML5, CSS3, Vanilla JS (ES6+), Google Apps Script, Chart.js, Python (build).
+- **Nguyên lý:** chạy hoàn toàn phía client; cấu hình lưu `localStorage` (hai app dùng chung khi mở cùng nguồn: cùng máy hoặc cùng tên miền).
 - **Mở app:** chạy `MO_TOOL_GIAO_DUC.bat` (mở `index.html` bằng Chrome/Edge dạng app).
-- **GitHub:** https://github.com/truongthaihoavt2010-arch/tool_giao_duc (công khai, bật GitHub Pages từ nhánh `main`).
+- **GitHub:** https://github.com/truongthaihoavt2010-arch/tool_giao_duc (công khai, GitHub Pages từ nhánh `main`).
   - Bản web: https://truongthaihoavt2010-arch.github.io/tool_giao_duc/
 
 ---
 
 ## 2. 🗂️ Bản đồ cấu trúc (Project Map)
-- `index.html` (gốc): Trang chủ hệ sinh thái, mở các công cụ.
+- `index.html` (gốc): trang chủ hệ sinh thái, cấu hình DeepSeek, mở các công cụ (iframe).
+- `shared/scores.js`: **bộ xử lý điểm dùng chung** (năm học, hình thức + lần kiểm tra, lọc trùng, điểm cao nhất, giới hạn số lần, xếp loại, chống chèn HTML). Dùng ở cả hai app.
 - `robot-tao-de/`
-  - `index.html`: Giao diện quản trị (SPA) của giáo viên (tạo đề, tỷ lệ khó dễ, quản lý lớp, cấu hình Google Sheets). Trang "Google Sheets" chứa **đoạn mã Apps Script để giáo viên copy** (phải luôn giống hệt `google_apps_script.js`).
-  - `app.js`: Logic lõi: gọi AI (DeepSeek → OpenRouter → Groq fallback), parse JSON từ AI, tạo bù câu thiếu, phân bổ độ khó, xuất file đề thi, đọc dữ liệu Google Sheets.
-  - `style.css`: CSS giao diện.
-  - `google_apps_script.js`: Mã nguồn Apps Script (doPost ghi điểm / doGet trả dữ liệu / hàm dọn bài trùng).
-  - `template_test.html`: **File nguồn** giao diện làm bài của học sinh (Student UI).
-  - `template_data.js`: Base64 của `template_test.html` (sinh tự động, KHÔNG sửa tay).
-  - `build.py`: Mã hóa `template_test.html` → `template_data.js`.
-- `quan-ly-diem/index.html`: App Quản Lý Điểm (EduScore) — **chỉ có bản đã build (React, minified), không có mã nguồn gốc**. Mọi thay đổi phải vá trực tiếp bằng thay thế chuỗi chính xác (xem mục 3E).
-- `de-thi/`: Các file đề đã xuất, đưa lên GitHub Pages để học sinh làm bài qua link.
-- `tests/test_difficulty.js`: Bộ test tự động (76 test cases) cho 3 hàm phân bổ độ khó. Chạy: `node tests/test_difficulty.js`.
+  - `index.html`: giao diện giáo viên (tạo đề, quản lý lớp + danh sách học sinh, xem kết quả, Google Sheets, AI dự phòng, đăng GitHub).
+  - `app.js`: gọi AI (DeepSeek → OpenRouter → Groq nếu có key), parse JSON, tạo bù câu thiếu, phân bổ độ khó, xuất đề (`buildExamHtml`), đọc Google Sheets (`fetchSheetJson`), đăng/gỡ đề GitHub.
+  - `google_apps_script.js`: **nguồn duy nhất** của mã Apps Script (phiên bản 3).
+  - `template_test.html`: **file nguồn** giao diện làm bài của học sinh.
+  - `template_data.js`: Base64 của template (sinh tự động, KHÔNG sửa tay).
+  - `build.py`: sinh `template_data.js` VÀ chép `google_apps_script.js` vào ô mã (`<textarea id="gasCode">`) của trang Google Sheets.
+- `quan-ly-diem/` (`index.html`, `style.css`, `app.js`): app Quản Lý Điểm viết bằng HTML/JS thuần (đã thay bản React build cũ không có mã nguồn).
+- `de-thi/`: đề đã xuất trong kho này (Khảo sát Tin 6, 7). Đề mới nên đăng vào **kho riêng** qua nút "Đăng lên GitHub".
+- `tests/`: `node tests/test_scores.js` (26 test) · `node tests/test_apps_script.js` (22 test, Google Sheets giả lập) · `node tests/test_difficulty.js` (76 test).
 
 ---
 
-## 3. 🧩 Quy ước & Thuật toán Cốt lõi (Guidelines & Core Logic)
+## 3. 🧩 Quy ước & Thuật toán Cốt lõi
 
-### A. Quy ước Lập trình:
-- Robot Tạo Đề: không dùng thư viện/framework UI bên ngoài (Tailwind, React). Vanilla JS và CSS thuần.
-- Dữ liệu cấu hình (API key, Webhook URL) lưu trong `localStorage`, không ghi vào mã nguồn.
-- Sau khi sửa `template_test.html`, bắt buộc chạy `python build.py` (trong thư mục `robot-tao-de`) để cập nhật `template_data.js`.
-- Sửa `google_apps_script.js` thì phải đồng bộ lại đoạn mã trong `<textarea>` ở trang Google Sheets của `robot-tao-de/index.html`.
-- Khi chèn dữ liệu vào template lúc xuất đề: dùng `JSON.stringify` + escape `<` và **hàm thay thế** trong `String.replace` (tránh lỗi với `"`, `$&`, `</script>` trong nội dung câu hỏi).
+### A. Quy ước lập trình
+- Không dùng framework UI (React, Tailwind…). Vanilla JS + CSS thuần.
+- **Dữ liệu từ Google Sheets / AI khi chèn vào HTML phải qua `EduScores.escapeHtml` (`esc`)** — tên học sinh là dữ liệu người ngoài nhập, có thể chứa mã độc (đánh cắp API key / token GitHub).
+- CSV xuất ra: ô bắt đầu bằng `= + - @` được thêm `'` (chống chèn công thức Excel).
+- Sửa `template_test.html` hoặc `google_apps_script.js` → chạy `python build.py` (trong `robot-tao-de`).
+- Chèn dữ liệu vào template: `JSON.stringify` + escape `<` + **hàm thay thế** trong `String.replace` (tránh lỗi với `"`, `$&`, `</script>`).
+- Đổi CSS/JS thì tăng số `?v=` trong thẻ `<link>/<script>` để trình duyệt tải bản mới.
 
-### B. Hệ thống Phân bổ Độ Khó AI (Difficulty Quota System):
-1. **`calculateDifficultyQuota`**: tính số câu chính xác cho mỗi mức độ, tổng luôn khớp.
-2. **`normalizeDifficulty`**: chuẩn hóa 20+ biến thể nhãn từ AI về `"Dễ"`, `"Trung bình"`, `"Khó"`.
-3. **`balanceDifficultyQuota`**: chuyển nhãn theo mức lân cận để đúng ma trận đặc tả.
+### B. Phân bổ độ khó AI
+`calculateDifficultyQuota` · `normalizeDifficulty` · `balanceDifficultyQuota` (76 test).
 
-### C. Sinh đề bằng AI (app.js):
-- **`parseAIQuestionsJSON`**: chịu được code fence (kể cả chưa đóng), văn bản thừa, dấu `\` không hợp lệ, dấu phẩy thừa; khi output bị cắt ngang thì lấy từng câu hoàn chỉnh. `protectLatex` giữ nguyên lệnh LaTeX (`\frac`, `\theta`...).
-- **`normalizeQuestionType`**: chuẩn hóa `type` (tiếng Việt/Anh/thiếu) về `mcq | tf | fill | calc`.
-- **Tạo bù:** sau lần gọi đầu, đếm số câu thiếu theo từng dạng và gọi AI tạo bù (tối đa 3 lượt, gửi kèm câu đã có để tránh trùng).
-- Số câu lấy từ "Cấu trúc đề" (ưu tiên hơn số ghi trong "Mô tả chi tiết").
+### C. Sinh đề bằng AI
+- `parseAIQuestionsJSON` chịu lỗi (code fence, `\` sai, dấu phẩy thừa, output bị cắt); `protectLatex` giữ lệnh LaTeX.
+- `normalizeQuestionType`; tạo bù câu thiếu tối đa 3 lượt; số câu theo "Cấu trúc đề".
+- Key OpenRouter/Groq nhập ở trang Google Sheets (`robotAiKeys`); không có key thì bỏ qua dịch vụ đó.
 
-### D. Đồng bộ Google Sheets:
-- **Đề thi gửi điểm** (`template_test.html`): POST form (`name, subject, examTime, className, score, submissionId`), đọc phản hồi để xác nhận; chờ tối đa 90 giây (Google có lúc ~30 giây nhưng vẫn ghi — hủy sớm rồi gửi lại sẽ tạo bài trùng); thử lại 3 lần; lỗi thì lưu tạm `localStorage` (`aiRobotPendingScores`) + nút "Gửi lại điểm".
-- **Chống nộp trùng:**
-  - Đề thi: khóa nút NỘP BÀI sau lần bấm đầu; ghi nhớ bài đã nộp trên máy (`aiRobotSubmittedExams`, theo đề + tên + lớp) để chặn tải lại trang rồi nộp lại.
-  - Apps Script: bỏ qua bài trùng `submissionId`, hoặc trùng nội dung (tên + lớp + môn + hình thức + điểm) trong 2 phút. Hàm `xoaBaiNopTrung()` (chạy tay) dọn bài trùng cũ.
-  - Ứng dụng đọc dữ liệu (Quản Lý Điểm, Robot Tạo Đề): lọc bài trùng cùng quy tắc khi thống kê.
-- **Apps Script:** `LockService` chống ghi đồng thời; luôn ghi tab đầu tiên; thời gian nộp ghi dạng Date, điểm dạng số; `doGet` trả ngày `dd/MM/yyyy HH:mm:ss`; `CacheService` lưu đệm 5 phút (xóa khi có bài nộp mới).
-- **Đọc dữ liệu:** thử lại 3 lần (timeout 15s/15s/40s). Quản Lý Điểm hiện ngay dữ liệu lưu lần trước (`eduscoreCache`) rồi cập nhật ở nền; đọc được cả ngày ISO (Apps Script cũ) lẫn `dd/MM/yyyy`.
-- **Cập nhật Apps Script:** dán mã mới → Triển khai → Quản lý các lần triển khai → Sửa → **Phiên bản mới** (giữ nguyên URL). Không tạo "triển khai mới" vì sẽ đổi URL.
+### D. Hình thức, lần kiểm tra, điểm cao nhất (shared/scores.js)
+- Hình thức = thời gian làm bài + **Lần 1–6**, ví dụ `15 Phút - Lần 1`. Dữ liệu cũ không ghi lần = **Lần 1**.
+- Giới hạn số lần (tùy chọn khi xuất đề): ghi kèm hình thức `... - Tối đa 5 lần`. App **không chặn** học sinh mà **không tính** các lần vượt giới hạn.
+- Đề gửi `examTime = "Lần 2 - Tối đa 5 lần - 15"` (Apps Script cũ tự nối " Phút" vẫn đọc đúng) kèm `minutes/round/limit`; Apps Script mới ghi gọn `15 Phút - Lần 2 - Tối đa 5 lần`.
+- Mỗi **tên + lớp + môn + hình thức + lần + năm học** → lấy **điểm cao nhất** trong N lần đầu. Gõ tên khác = học sinh khác (chỉ bỏ qua hoa thường/khoảng trắng).
+- Bài gửi trùng (giống hệt, cách nhau < 2 phút) không tính là một lần làm.
+- Năm học: 01/09 → 31/08.
+- Xếp loại: Tốt 8–10 · Khá 6.5–7.9 · Đạt 5–6.4 · Chưa đạt < 5 · **Đạt trở lên 5–10**.
+- Xuất đề: cảnh báo nếu "môn + thời gian + lần" đã có bài nộp trong năm học (gợi ý lần còn trống).
 
-### E. App Quản Lý Điểm (bundle đã build):
-- Không có mã nguồn: vá bằng script Node thay thế chuỗi, **kiểm tra chuỗi cần thay xuất hiện đúng 1 lần**, sau đó kiểm tra cú pháp bằng `new Function(...)` và chạy thử qua `python -m http.server`.
-- **Xếp loại:** Tốt 8–10 · Khá 6.5–7.9 · Đạt 5–6.4 · Chưa đạt < 5 · **Đạt trở lên 5–10**.
-- Dashboard: thẻ Tổng bài thi, Điểm TB, Đạt trở lên, Chưa đạt; bảng **"Thống Kê Xếp Loại Theo Lớp"** (SL, %, dòng Tổng cộng, lọc môn/hình thức, tải CSV).
-- Danh sách lớp/môn/hình thức sắp xếp tự nhiên (`localeCompare(..., 'vi', {numeric: true})`: 6A1, 6A2, …, 6A10).
+### E. Google Sheets & Apps Script (phiên bản 3)
+- **Mã đọc dữ liệu (`READ_KEY`)**: app tự sinh (`robotReadKey`), điền sẵn vào mã Apps Script trong trang cài đặt. `doGet` cần `key` đúng; `doPost` (học sinh nộp bài) không cần.
+- **Mỗi năm học một tab** (`2026-2027`), tự tạo; tab cũ (vd "Trang tính1") vẫn được đọc theo ngày nộp.
+- `doGet?key=&year=2026-2027|all`, `doGet?key=&action=info` (phiên bản, năm học, đã bảo vệ chưa).
+- LockService, chống trùng (submissionId + nội dung trong 2 phút), CacheService theo năm học (5 phút, xóa khi có bài mới).
+- Công cụ chạy tay: `saoLuu` (bản sao Sheet trong Drive), `xoaBaiNopTrung`.
+- Cập nhật: dán mã → Triển khai › Quản lý các lần triển khai › Sửa › **Phiên bản mới** (giữ URL).
+- Đọc dữ liệu: thử lại 3 lần (chờ 30/45/60 giây — Google có lúc 20 giây mới phản hồi); Quản Lý Điểm hiện ngay dữ liệu lưu lần trước (`eduscoreCacheV2`) rồi cập nhật ở nền.
 
-### F. Đề thi trên điện thoại:
-- Khởi tạo đề bằng `DOMContentLoaded` (không chờ font/icon CDN).
-- Khung cảnh báo hiện khi JavaScript không chạy (xem trước trong Zalo/Tệp trên iPhone). iPhone không chạy được file .html tải về → **gửi học sinh link GitHub Pages** thay vì gửi file.
-- Đưa đề lên: lưu file vào `de-thi/` (tên không dấu, không khoảng trắng) → commit → push. Link: `https://truongthaihoavt2010-arch.github.io/tool_giao_duc/de-thi/<TEN_FILE>.html`. Lưu ý: kho công khai nên ai có link đều xem được đề và đáp án.
+### F. Đề thi (template_test.html)
+- Khởi tạo bằng `DOMContentLoaded`; khung cảnh báo khi JS không chạy (xem trước Zalo/iPhone).
+- Chọn lớp → nếu lớp có danh sách (`STUDENT_LISTS`, nhập ở trang Quản lý lớp) thì chọn tên, có lựa chọn "nhập tay" dự phòng.
+- `SHUFFLE`: xáo trộn câu hỏi + đáp án (không đảo đáp án kiểu "Cả A và B", "Tất cả…").
+- Gửi điểm: chờ tối đa 90 giây, thử lại 3 lần, lưu tạm + nút "Gửi lại điểm"; khóa nút NỘP BÀI sau lần bấm đầu.
+
+### G. Đăng đề lên GitHub (Robot Tạo Đề)
+- Cấu hình ở trang Google Sheets: tài khoản, kho (nên là **kho riêng**, Public, bật Pages), thư mục, nhánh, **token fine-grained chỉ quyền Contents cho kho đó** (`robotGithub`).
+- **Không dùng token trên bản web `*.github.io`** (các trang Pages cùng tài khoản dùng chung localStorage) — app tự chặn.
+- Nút "Đăng lên GitHub & lấy link": PUT Contents API, tên file có đoạn ngẫu nhiên, chờ Pages cập nhật, hiện link + mã QR. Danh sách "Đề đã đăng" có nút **Gỡ đề** (DELETE).
 
 ---
 
-## 4. ⏳ Lịch sử & Trạng thái (State & Memory)
+## 4. ⏳ Lịch sử & Trạng thái
 
-- **28–29/09/2026:**
-  - Sửa lỗi "AI không trả về đúng định dạng JSON" (parse chịu lỗi, tăng `max_tokens`), giữ LaTeX, tạo bù khi AI trả thiếu câu.
-  - Đồng bộ Google Sheets tin cậy: xác nhận lưu điểm, thử lại, lưu tạm, LockService, bộ nhớ đệm, đọc lại khi Google lỗi tạm thời (Sheet 500+ dòng).
-  - Sửa lỗi không chọn được lớp trên điện thoại; đưa đề Khảo sát Tin học 6, 7 lên GitHub Pages (`de-thi/`).
-  - Quản Lý Điểm: xếp loại theo thang mới, thẻ "Đạt trở lên", bảng thống kê theo lớp, hiện ngay dữ liệu đã lưu, sắp xếp lớp tăng dần.
-  - Chống nộp bài trùng (nguyên nhân: đề thi hủy yêu cầu sau 25 giây rồi gửi lại trong khi Google vẫn ghi) — dữ liệu thật 527 bài → 385 bài sau khi lọc trùng.
-- **15/08/2026:**
-  - Nâng cấp Hệ thống Độ Khó (hiển thị số câu real-time, prompt sư phạm, `balanceDifficultyQuota`, 76/76 test pass).
-  - Sửa lỗi phân tách lớp (`;` → `,`).
+- **29/09/2026 — Nâng cấp toàn diện:**
+  - Bảo mật: chống chèn mã khi hiển thị dữ liệu Sheet/AI; mã đọc dữ liệu cho Apps Script; chặn token trên bản web.
+  - Apps Script v3: tab theo năm học, mã đọc, lần kiểm tra, `saoLuu`.
+  - Viết lại Quản Lý Điểm (HTML/JS thuần): năm học, điểm cao nhất theo lần, số lần làm, xem tất cả lần nộp, xếp hạng, biểu đồ, sao lưu CSV.
+  - Lần kiểm tra 1–6, giới hạn số lần, cảnh báo trùng lần, danh sách học sinh theo lớp, xáo trộn câu hỏi, đăng đề GitHub + QR.
+  - AI dự phòng nhập key trong app; build.py tự đồng bộ mã Apps Script.
+- **28–29/09/2026:** sửa lỗi JSON từ AI, tạo bù câu thiếu, đồng bộ Google Sheets tin cậy, sửa lỗi điện thoại, chống nộp trùng, xếp loại & bảng thống kê.
+- **15/08/2026:** hệ thống độ khó (76 test), sửa phân tách lớp.
 
-- **Việc giáo viên cần làm (chưa xác nhận đã làm):**
-  - Dán mã Apps Script mới vào Sheet "ROBOT LUU DIEM" và triển khai **Phiên bản mới** (hiện Google vẫn chạy bản cũ).
-  - Tạo bản sao Sheet rồi chạy `xoaBaiNopTrung` để dọn bài trùng cũ.
-  - Xuất lại các file đề đang dùng bằng mẫu mới (các đề trong `de-thi/` đang dùng mẫu trước khi có chống nộp trùng).
-  - Kiểm tra token GitHub cũ (`ghp_...`, từng lưu trong địa chỉ remote) đã bị thu hồi.
+- **Việc giáo viên cần làm (chưa xác nhận):**
+  - Dán mã Apps Script **v3** (trang Google Sheets của Robot Tạo Đề, đã có mã đọc) → triển khai **Phiên bản mới**. Hiện Google vẫn chạy bản cũ.
+  - Chạy `saoLuu`, rồi `xoaBaiNopTrung` để dọn bài trùng cũ.
+  - Tạo kho GitHub riêng cho đề thi + token fine-grained, cấu hình ở trang Google Sheets.
+  - Nhập danh sách học sinh các lớp (trang Quản lý lớp học).
+  - Kiểm tra token GitHub cũ (`ghp_...`) đã bị thu hồi.
 
-- **Task tiếp theo (To-Do):**
-  - Tùy chọn thống kê "mỗi học sinh một kết quả" (lần nộp đầu / điểm cao nhất) khi học sinh làm lại.
-  - Cấu hình thêm tính năng ôn tập bằng Flashcard 3D tự động lấy dữ liệu từ Dashboard.
-  - Tạo Module bài tập cá nhân hóa tự sinh dựa trên phân tích phổ điểm.
-  - Viết và biên dịch hồ sơ Sáng kiến kinh nghiệm (SKKN) chuẩn Nghị định 30.
+- **To-Do:**
+  - Chấm điểm phía Apps Script để giấu đáp án khỏi file đề (bài kiểm tra quan trọng).
+  - Phân tích từng câu hỏi (câu sai nhiều, đáp án nhiễu) — cần đề gửi kèm lựa chọn của học sinh.
+  - Xuất điểm theo mẫu sổ điểm điện tử (vnEdu/SMAS).
+  - Flashcard ôn tập; bài tập cá nhân hóa; hồ sơ SKKN theo Nghị định 30.

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Robot - Tạo Đề Thông Minh</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=6">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -183,6 +183,25 @@
                             <option value="90">90 phút</option>
                             <option value="120">120 phút</option>
                         </select>
+                        <label style="font-size: 13px; font-weight: 500; margin: 12px 0 8px; display:block; color: var(--text-muted);">Lần kiểm tra</label>
+                        <select id="examRound" title="Cùng môn + thời gian + lần kiểm tra: học sinh làm nhiều lần thì lấy điểm cao nhất" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: white; width: 120px;">
+                            <option value="1" selected>Lần 1</option>
+                            <option value="2">Lần 2</option>
+                            <option value="3">Lần 3</option>
+                            <option value="4">Lần 4</option>
+                            <option value="5">Lần 5</option>
+                            <option value="6">Lần 6</option>
+                        </select>
+                        <label style="font-size: 13px; font-weight: 500; margin: 12px 0 8px; display:block; color: var(--text-muted);">Số lần làm tối đa</label>
+                        <select id="examLimit" title="Các lần làm vượt giới hạn không được tính điểm" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: white; width: 120px;">
+                            <option value="0" selected>Không giới hạn</option>
+                            <option value="1">1 lần</option>
+                            <option value="2">2 lần</option>
+                            <option value="3">3 lần</option>
+                            <option value="4">4 lần</option>
+                            <option value="5">5 lần</option>
+                            <option value="10">10 lần</option>
+                        </select>
                     </div>
                 </div>
 
@@ -239,7 +258,7 @@
                             <i class="fa-brands fa-google" style="color:#34a853"></i> Google Sheets
                         </div>
                         <p style="font-size: 12px; color:var(--text-muted); margin-bottom: 12px;">Đã tích hợp module lấy dữ liệu tự động cho biểu đồ. Bấm vào trang Cài đặt Google Sheets để xem chi tiết.</p>
-                        <button class="btn-outline" style="width: 100%" onclick="switchPage('page-settings', document.querySelectorAll('.menu-item')[4])">Cấu hình kết nối</button>
+                        <button class="btn-outline" style="width: 100%" onclick="switchPage('page-settings', document.querySelectorAll('.menu-item')[6])">Cấu hình kết nối</button>
                     </div>
                     <div class="mini-card" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white; border: none; padding: 24px 20px;">
                         <div style="font-size: 16px; font-weight: 700; margin-bottom: 15px;"><i class="fa-solid fa-laptop-code"></i> Bản quyền phần mềm</div>
@@ -325,7 +344,7 @@
                 <div class="card-header">
                     <div class="card-title"><i class="fa-solid fa-users-rectangle"></i> Quản Lý Lớp Học</div>
                 </div>
-                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Danh sách lớp học dùng để gán cho các đề kiểm tra. Bạn có thể thêm lớp mới tại đây.</p>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Danh sách lớp học dùng để gán cho các đề kiểm tra. Nhập <strong>danh sách học sinh</strong> để học sinh chọn tên khi làm bài (tránh gõ sai tên → bị tính là học sinh khác).</p>
                 
                 <div class="form-grid" style="grid-template-columns: 1fr 2fr 1fr; align-items: end; margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
                     <div class="form-group" style="margin-bottom:0;">
@@ -353,9 +372,10 @@
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th width="20%">Khối</th>
-                                <th width="60%">Tên Lớp</th>
-                                <th width="20%">Hành động</th>
+                                <th width="15%">Khối</th>
+                                <th width="30%">Tên Lớp</th>
+                                <th width="25%">Danh sách học sinh</th>
+                                <th width="30%">Hành động</th>
                             </tr>
                         </thead>
                         <tbody id="tableClassesBody">
@@ -376,30 +396,37 @@
                         <button class="btn-primary" style="padding: 6px 12px; font-size: 13px;" onclick="downloadResultsCsv()"><i class="fa-solid fa-file-csv"></i> Tải dữ liệu lớp</button>
                     </div>
                 </div>
-                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Dữ liệu bảng điểm đồng bộ từ Google Sheets. Bạn có thể xem và tải về theo từng lớp.</p>
-                
-                <div class="form-group" style="margin-bottom: 20px; max-width: 300px;">
-                    <label>Chọn Lớp Học</label>
-                    <select id="resultsClassSelect" class="form-control" onchange="renderResultsTable()">
-                        <option value="">-- Tất cả các lớp --</option>
-                    </select>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Mỗi học sinh + môn + hình thức + lần kiểm tra lấy <strong>điểm cao nhất</strong> (trong số lần làm cho phép). Bài bị gửi trùng không tính là một lần làm.</p>
+
+                <div style="display:flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px;">
+                    <div class="form-group" style="margin-bottom: 0; min-width: 220px;">
+                        <label>Năm học</label>
+                        <select id="resultsYearSelect" class="form-control" onchange="renderResultsClasses()"></select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0; min-width: 220px;">
+                        <label>Chọn Lớp Học</label>
+                        <select id="resultsClassSelect" class="form-control" onchange="renderResultsTable()">
+                            <option value="">-- Tất cả các lớp --</option>
+                        </select>
+                    </div>
                 </div>
-                
+
                 <div class="table-responsive">
                     <table class="data-table">
                         <thead>
                             <tr>
                                 <th width="5%">STT</th>
-                                <th width="20%">HỌ TÊN</th>
-                                <th width="15%">MÔN</th>
+                                <th width="18%">HỌ TÊN</th>
+                                <th width="10%">MÔN</th>
                                 <th width="15%">HÌNH THỨC KT</th>
-                                <th width="10%">LỚP</th>
-                                <th width="20%">THỜI GIAN NỘP</th>
-                                <th width="15%">ĐIỂM SỐ</th>
+                                <th width="8%">LỚP</th>
+                                <th width="14%">NỘP LÚC</th>
+                                <th width="12%">ĐIỂM CAO NHẤT</th>
+                                <th width="18%">SỐ LẦN LÀM</th>
                             </tr>
                         </thead>
                         <tbody id="tableResultsBody">
-                            <tr><td colspan="7" style="text-align:center; padding: 20px; color:var(--text-muted)">Chưa có dữ liệu, vui lòng cấu hình Google Sheets và chọn "Làm mới".</td></tr>
+                            <tr><td colspan="8" style="text-align:center; padding: 20px; color:var(--text-muted)">Chưa có dữ liệu, vui lòng cấu hình Google Sheets và chọn "Làm mới".</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -410,64 +437,45 @@
         <div id="page-settings" class="page-content" style="display:none;">
             <div class="card">
                 <div class="card-header">
-                    <div class="card-title"><i class="fa-brands fa-google"></i> Cấu hình Google Sheets Đồng Bộ</div>
-                    <a href="javascript:void(0)" onclick="downloadCSVTemplate()" class="btn-primary" style="padding: 6px 12px; font-size: 13px; text-decoration: none;"><i class="fa-solid fa-download"></i> Tải File Mẫu (CSV)</a>
+                    <div class="card-title"><i class="fa-brands fa-google"></i> Kết nối Google Sheets (lưu và xem điểm)</div>
+                    <a href="javascript:void(0)" onclick="downloadCSVTemplate()" class="btn-outline" style="padding: 6px 12px; font-size: 13px; text-decoration: none;"><i class="fa-solid fa-download"></i> Tải file mẫu (CSV)</a>
                 </div>
-                
+
                 <div class="form-group" style="margin-bottom: 20px;">
-                    <label style="font-weight: 600;">Bước 1: Tạo Google Sheets & Dán mã Apps Script</label>
-                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Tạo một Google Sheets mới (hoặc import file mẫu CSV). Chọn <strong>Tiện ích mở rộng > Apps Script</strong>. Dán toàn bộ đoạn mã sau thay thế code cũ, sau đó bấm <strong>Triển khai (Deploy) > Tùy chọn triển khai mới > Loại: Ứng dụng web (Ai cũng có quyền truy cập)</strong>.<br><strong style="color:#d63031;">Đã cài bản cũ?</strong> Dán lại mã mới rồi vào <strong>Triển khai > Quản lý các lần triển khai > Sửa (bút chì) > Phiên bản: Phiên bản mới > Triển khai</strong> để giữ nguyên URL.</p>
-                    <textarea readonly style="width: 100%; height: 320px; font-family: monospace; font-size: 13px; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: #f8f9fa;">var HEADERS = ["STT", "HỌ TÊN", "MÔN", "HÌNH THỨC KT", "LỚP", "THỜI GIAN NỘP", "ĐIỂM SỐ", "MÃ BÀI NỘP"];
-var TZ = "GMT+7";
-
-var DUP_WINDOW_MS = 2 * 60 * 1000; // Bài giống hệt nộp lại trong 2 phút = bài trùng
-
-// Khóa so sánh bài trùng: tên (không phân biệt hoa thường, khoảng trắng) + lớp + môn + hình thức + điểm
-function dupKey_(name, className, subject, examTime, score) {
-  var norm = function (v) { return String(v == null ? "" : v).trim().toLowerCase().replace(/\s+/g, " "); };
-  var s = parseFloat(String(score).replace(",", "."));
-  return [norm(name), norm(className), norm(subject), norm(examTime), isNaN(s) ? norm(score) : s.toFixed(2)].join("|");
-}
-
-/**
- * DỌN BÀI NỘP TRÙNG ĐÃ CÓ TRONG SHEET (chạy tay 1 lần trong trình soạn thảo Apps Script):
- * chọn hàm "xoaBaiNopTrung" ở thanh công cụ rồi bấm "Chạy".
- * Xóa các dòng giống hệt dòng trước (cùng tên, lớp, môn, hình thức, điểm) nộp cách nhau dưới 2 phút,
- * giữ lại lần nộp đầu tiên. NÊN tạo bản sao Sheet trước (Tệp > Tạo bản sao).
+                    <label style="font-weight: 600;">Bước 1: Dán mã Apps Script vào Google Sheets</label>
+                    <ol style="font-size: 13px; color: var(--text-muted); margin: 6px 0 10px 18px; line-height: 1.7;">
+                        <li>Mở Google Sheets, chọn <strong>Tiện ích mở rộng › Apps Script</strong>. Xóa mã cũ, dán mã bên dưới, bấm <strong>Lưu</strong>.</li>
+                        <li><strong>Lần đầu:</strong> <em>Triển khai › Tùy chọn triển khai mới › Ứng dụng web</em>; Thực thi: <em>Tôi</em>; Quyền truy cập: <em>Bất kỳ ai</em>.</li>
+                        <li><strong style="color:#d63031;">Đã cài trước đây:</strong> <em>Triển khai › Quản lý các lần triển khai › Sửa (bút chì) › Phiên bản: Phiên bản mới › Triển khai</em> — giữ nguyên URL.</li>
+                    </ol>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;"><i class="fa-solid fa-key"></i> Mã đã có sẵn <strong>mã đọc dữ liệu</strong> của bạn (ô "Mã đọc dữ liệu" ở Bước 2): chỉ ai có mã mới xem được điểm học sinh. Mỗi năm học, điểm được ghi vào một tab riêng (ví dụ "2026-2027").</p>
+                    <textarea id="gasCode" readonly spellcheck="false" style="width: 100%; height: 260px; font-family: monospace; font-size: 12px; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: #f8f9fa;">/**
+ * ROBOT TẠO ĐỀ TRẮC NGHIỆM - GOOGLE APPS SCRIPT (phiên bản 3)
+ * Copy mã này từ trang "Google Sheets" của phần mềm Robot Tạo Đề: ở đó MÃ ĐỌC DỮ LIỆU
+ * đã được điền sẵn cho bạn.
+ *
+ * HƯỚNG DẪN CÀI ĐẶT:
+ * 1. Mở Google Sheets. Vào menu "Tiện ích mở rộng" &gt; "Apps Script".
+ * 2. Xóa nội dung cũ, dán toàn bộ đoạn mã này vào, bấm Lưu.
+ * 3. Lần đầu: "Triển khai" &gt; "Tùy chọn triển khai mới" &gt; Loại: "Ứng dụng web";
+ *    Thực thi với tư cách: "Tôi"; Quyền truy cập: "Bất kỳ ai".
+ * 4. Copy "URL Ứng dụng Web" và dán vào trang "Google Sheets" của phần mềm.
+ * KHI CẬP NHẬT MÃ: Triển khai &gt; Quản lý các lần triển khai &gt; Sửa (bút chì) &gt; Phiên bản mới
+ * &gt; Triển khai (giữ nguyên URL cũ).
+ *
+ * DỮ LIỆU: mỗi năm học một tab ("2026-2027"...), tự tạo khi có bài nộp đầu tiên của năm học.
+ * Tab cũ (ví dụ "Trang tính1") được giữ nguyên và vẫn được đọc theo ngày nộp.
  */
-function xoaBaiNopTrung() {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    var sheet = getDataSheet_();
-    var last = sheet.getLastRow();
-    if (last < 3) return;
-    var data = sheet.getRange(2, 1, last - 1, 7).getValues();
-    var lastSeen = {}; // khóa -> thời gian lần nộp được giữ gần nhất
-    var toDelete = [];
-    for (var i = 0; i < data.length; i++) {
-      var t = data[i][5] instanceof Date ? data[i][5].getTime() : NaN;
-      var key = dupKey_(data[i][1], data[i][4], data[i][2], data[i][3], data[i][6]);
-      if (!isNaN(t) && lastSeen[key] !== undefined && t - lastSeen[key] >= 0 && t - lastSeen[key] < DUP_WINDOW_MS) {
-        toDelete.push(i + 2); // số dòng trong Sheet
-      } else if (!isNaN(t)) {
-        lastSeen[key] = t;
-      }
-    }
-    // Xóa từ dưới lên để không lệch số dòng
-    for (var j = toDelete.length - 1; j >= 0; j--) sheet.deleteRow(toDelete[j]);
-    clearCache_();
-    Logger.log("Đã xóa " + toDelete.length + " bài nộp trùng.");
-  } finally {
-    lock.releaseLock();
-  }
-}
 
-// Luôn ghi vào tab đầu tiên, không phụ thuộc tab đang mở
-function getDataSheet_() {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-}
+var READ_KEY = ""; // MÃ ĐỌC DỮ LIỆU — chỉ ai có mã này mới xem được điểm (để trống = ai cũng xem được)
+var SCRIPT_VERSION = 3;
 
+var HEADERS = ["STT", "HỌ TÊN", "MÔN", "HÌNH THỨC KT", "LỚP", "THỜI GIAN NỘP", "ĐIỂM SỐ", "MÃ BÀI NỘP"];
+var TZ = "GMT+7";
+var DUP_WINDOW_MS = 2 * 60 * 1000; // Bài giống hệt nộp lại trong 2 phút = bài trùng
+var YEAR_TAB = /^\d{4}-\d{4}$/;
+
+// ================= TIỆN ÍCH =================
 function jsonOut_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -478,6 +486,58 @@ function safeText_(v) {
   return /^[=+\-@]/.test(s) ? "'" + s : s;
 }
 
+function norm_(v) { return String(v == null ? "" : v).trim().toLowerCase().replace(/\s+/g, " "); }
+
+// Năm học của một thời điểm: từ tháng 9 là năm học mới
+function schoolYearOf_(d) {
+  var y = d.getFullYear();
+  return d.getMonth() &gt;= 8 ? y + "-" + (y + 1) : (y - 1) + "-" + y;
+}
+
+// Chuẩn hóa hình thức: "15 Phút - Lần 1" (+ " - Tối đa 5 lần")
+function hinhThuc_(data) {
+  var raw = String(data.examTime == null ? "" : data.examTime);
+  var minutes = parseInt(data.minutes, 10);
+  var round = parseInt(data.round, 10);
+  var limit = parseInt(data.limit, 10);
+  var m;
+  if (isNaN(minutes) &amp;&amp; (m = raw.match(/(\d+)\s*(phút)?\s*$/i))) minutes = parseInt(m[1], 10);
+  if (isNaN(round) &amp;&amp; (m = raw.match(/lần\s*(\d+)/i))) round = parseInt(m[1], 10);
+  if (isNaN(limit) &amp;&amp; (m = raw.match(/tối\s*đa\s*(\d+)/i))) limit = parseInt(m[1], 10);
+  if (isNaN(minutes)) return safeText_(raw) + " Phút"; // Không nhận ra: giữ như cũ
+  var s = minutes + " Phút - Lần " + (isNaN(round) ? 1 : round);
+  if (limit &gt; 0) s += " - Tối đa " + limit + " lần";
+  return s;
+}
+
+// Khóa so sánh bài trùng
+function dupKey_(name, className, subject, examTime, score) {
+  var s = parseFloat(String(score).replace(",", "."));
+  return [norm_(name), norm_(className), norm_(subject), norm_(examTime), isNaN(s) ? norm_(score) : s.toFixed(2)].join("|");
+}
+
+// Tab dữ liệu của năm học (tự tạo nếu chưa có)
+function getYearSheet_(year) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(year);
+  if (!sheet) {
+    sheet = ss.insertSheet(year, 0);
+    sheet.appendRow(HEADERS);
+    sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight("bold").setBackground("#d1e7dd");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+// Các tab chứa dữ liệu: tab năm học + tab cũ có tiêu đề "HỌ TÊN" ở cột B
+function dataSheets_() {
+  return SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (s) {
+    if (YEAR_TAB.test(s.getName())) return true;
+    return s.getLastRow() &gt;= 1 &amp;&amp; norm_(s.getRange(1, 2).getValue()) === "họ tên";
+  });
+}
+
+// ================= GHI ĐIỂM (học sinh nộp bài) =================
 function doPost(e) {
   var lock = LockService.getScriptLock();
   try {
@@ -486,49 +546,44 @@ function doPost(e) {
     return jsonOut_({ status: "error", message: "Máy chủ đang bận, vui lòng thử lại." });
   }
   try {
-    var sheet = getDataSheet_();
-    var data = (e && e.parameter) || {};
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow(HEADERS);
-    } else if (sheet.getRange(1, 8).getValue() === "") {
-      sheet.getRange(1, 8).setValue(HEADERS[7]); // Bảng tính tạo từ phiên bản cũ
-    }
+    var data = (e &amp;&amp; e.parameter) || {};
+    var now = new Date();
+    var sheet = getYearSheet_(schoolYearOf_(now));
+    var last = sheet.getLastRow();
 
     // Chống ghi trùng khi đề thi gửi lại cùng một bài nộp
     var submissionId = safeText_(data.submissionId);
-    if (submissionId && sheet.getLastRow() > 1) {
-      var found = sheet.getRange(2, 8, sheet.getLastRow() - 1, 1)
+    if (submissionId &amp;&amp; last &gt; 1) {
+      var found = sheet.getRange(2, 8, last - 1, 1)
                        .createTextFinder(submissionId).matchEntireCell(true).findNext();
       if (found) return jsonOut_({ status: "success", duplicate: true });
     }
 
-    // Chống trùng theo nội dung (kể cả file đề cũ không có mã bài nộp):
-    // cùng tên + lớp + môn + hình thức + điểm, nộp cách nhau dưới 2 phút
+    var examTime = hinhThuc_(data);
     var score = parseFloat(String(data.score).replace(",", "."));
-    var newKey = dupKey_(safeText_(data.name), safeText_(data.className), safeText_(data.subject),
-                         safeText_(data.examTime) + " Phút", isNaN(score) ? data.score : score);
-    var last = sheet.getLastRow();
-    if (last > 1) {
-      var n = Math.min(100, last - 1); // Chỉ xét 100 bài nộp gần nhất cho nhanh
+
+    // Chống trùng theo nội dung (đề cũ không có mã bài nộp): giống hệt, cách nhau dưới 2 phút
+    var newKey = dupKey_(safeText_(data.name), safeText_(data.className), safeText_(data.subject), examTime, isNaN(score) ? data.score : score);
+    if (last &gt; 1) {
+      var n = Math.min(100, last - 1);
       var recent = sheet.getRange(last - n + 1, 1, n, 7).getValues();
-      var now = new Date().getTime();
-      for (var r = recent.length - 1; r >= 0; r--) {
+      for (var r = recent.length - 1; r &gt;= 0; r--) {
         var t = recent[r][5] instanceof Date ? recent[r][5].getTime() : 0;
-        if (t && now - t < DUP_WINDOW_MS &&
+        if (t &amp;&amp; now.getTime() - t &lt; DUP_WINDOW_MS &amp;&amp;
             dupKey_(recent[r][1], recent[r][4], recent[r][2], recent[r][3], recent[r][6]) === newKey) {
           return jsonOut_({ status: "success", duplicate: true });
         }
       }
     }
 
-    var stt = sheet.getLastRow(); // Dòng 1 là tiêu đề nên STT = số dòng hiện có
+    var stt = Math.max(1, last); // Dòng 1 là tiêu đề
     sheet.appendRow([
       stt,
       safeText_(data.name),
       safeText_(data.subject),
-      safeText_(data.examTime) + " Phút",
+      examTime,
       safeText_(data.className),
-      new Date(),
+      now,
       isNaN(score) ? safeText_(data.score) : score,
       submissionId
     ]);
@@ -545,21 +600,84 @@ function doPost(e) {
   }
 }
 
-// ===== Bộ nhớ đệm cho doGet: trả dữ liệu nhanh, giảm lỗi khi Sheet có hàng trăm dòng =====
-var CACHE_PREFIX = "doGet_v1_";
+// ================= ĐỌC ĐIỂM (giáo viên) =================
+// ?key=MÃ_ĐỌC&amp;year=2026-2027 (mặc định năm học hiện tại; year=all: tất cả)
+// ?key=MÃ_ĐỌC&amp;action=info  -&gt; phiên bản script + danh sách năm học
+function doGet(e) {
+  var p = (e &amp;&amp; e.parameter) || {};
+  if (READ_KEY &amp;&amp; p.key !== READ_KEY) {
+    return jsonOut_({ status: "error", code: "unauthorized", message: "Sai mã đọc dữ liệu." });
+  }
+  if (p.action === "info") {
+    return jsonOut_({ status: "success", version: SCRIPT_VERSION, years: listYears_(), protected: !!READ_KEY });
+  }
+  var year = p.year || schoolYearOf_(new Date());
+  var cached = readCache_(year);
+  if (cached) return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
+  var json = JSON.stringify(readRows_(year));
+  writeCache_(year, json);
+  return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+}
+
+function listYears_() {
+  var set = {};
+  set[schoolYearOf_(new Date())] = true;
+  dataSheets_().forEach(function (s) {
+    if (YEAR_TAB.test(s.getName())) { set[s.getName()] = true; return; }
+    var last = s.getLastRow();
+    if (last &lt; 2) return;
+    s.getRange(2, 6, last - 1, 1).getValues().forEach(function (r) {
+      if (r[0] instanceof Date) set[schoolYearOf_(r[0])] = true;
+    });
+  });
+  return Object.keys(set).sort().reverse();
+}
+
+function readRows_(year) {
+  var result = [];
+  dataSheets_().forEach(function (sheet) {
+    var isYearTab = YEAR_TAB.test(sheet.getName());
+    if (isYearTab &amp;&amp; year !== "all" &amp;&amp; sheet.getName() !== year) return;
+    var last = sheet.getLastRow();
+    if (last &lt; 2) return;
+    var data = sheet.getRange(2, 1, last - 1, 7).getValues(); // Chỉ đọc 7 cột cần dùng
+    for (var i = 0; i &lt; data.length; i++) {
+      if (data[i].join("") === "") continue;
+      var d = data[i][5];
+      var rowYear = isYearTab ? sheet.getName() : (d instanceof Date ? schoolYearOf_(d) : "");
+      if (year !== "all" &amp;&amp; rowYear !== year) continue;
+      result.push({
+        stt: data[i][0],
+        name: data[i][1],
+        subject: data[i][2],
+        examTime: data[i][3],
+        className: data[i][4],
+        date: d instanceof Date ? Utilities.formatDate(d, TZ, "dd/MM/yyyy HH:mm:ss") : String(d),
+        score: typeof data[i][6] === "number" ? data[i][6] : parseFloat(String(data[i][6]).replace(",", ".")),
+        year: rowYear
+      });
+    }
+  });
+  return result;
+}
+
+// ================= BỘ NHỚ ĐỆM (trả dữ liệu nhanh) =================
 var CACHE_SECONDS = 300;   // Tự làm mới sau 5 phút (hoặc ngay khi có bài nộp mới)
 var CHUNK_SIZE = 30000;    // CacheService giới hạn 100KB mỗi khóa (chữ có dấu tới 3 byte/ký tự)
 
-function readCache_() {
+function cachePrefix_(year) { return "doGet_v3_" + year + "_"; }
+
+function readCache_(year) {
   try {
     var cache = CacheService.getScriptCache();
-    var n = parseInt(cache.get(CACHE_PREFIX + "n"), 10);
+    var pre = cachePrefix_(year);
+    var n = parseInt(cache.get(pre + "n"), 10);
     if (!n) return null;
     var keys = [];
-    for (var i = 0; i < n; i++) keys.push(CACHE_PREFIX + i);
+    for (var i = 0; i &lt; n; i++) keys.push(pre + i);
     var parts = cache.getAll(keys);
     var out = "";
-    for (var j = 0; j < n; j++) {
+    for (var j = 0; j &lt; n; j++) {
       if (parts[keys[j]] == null) return null;
       out += parts[keys[j]];
     }
@@ -567,62 +685,209 @@ function readCache_() {
   } catch (err) { return null; }
 }
 
-function writeCache_(json) {
+function writeCache_(year, json) {
   try {
+    var pre = cachePrefix_(year);
     var obj = {};
     var n = Math.ceil(json.length / CHUNK_SIZE);
-    for (var i = 0; i < n; i++) obj[CACHE_PREFIX + i] = json.substr(i * CHUNK_SIZE, CHUNK_SIZE);
-    obj[CACHE_PREFIX + "n"] = String(n);
+    for (var i = 0; i &lt; n; i++) obj[pre + i] = json.substr(i * CHUNK_SIZE, CHUNK_SIZE);
+    obj[pre + "n"] = String(n);
     CacheService.getScriptCache().putAll(obj, CACHE_SECONDS);
   } catch (err) {} // Dữ liệu quá lớn để lưu đệm: vẫn trả dữ liệu bình thường
 }
 
 function clearCache_() {
-  try { CacheService.getScriptCache().remove(CACHE_PREFIX + "n"); } catch (err) {}
+  try {
+    CacheService.getScriptCache().removeAll([cachePrefix_(schoolYearOf_(new Date())) + "n", cachePrefix_("all") + "n"]);
+  } catch (err) {}
 }
 
-function doGet(e) {
-  var cached = readCache_();
-  if (cached) return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
-  var json = JSON.stringify(readAllRows_());
-  writeCache_(json);
-  return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
-}
+// ================= CÔNG CỤ CHẠY TAY (chọn tên hàm rồi bấm "Chạy") =================
 
-function readAllRows_() {
-  var sheet = getDataSheet_();
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
-  var data = sheet.getRange(1, 1, lastRow, 7).getValues(); // Chỉ đọc 7 cột cần dùng
-  var result = [];
-  for (var i = 1; i < data.length; i++) {
-    if (data[i].join("") === "") continue;
-    var d = data[i][5];
-    result.push({
-      stt: data[i][0],
-      name: data[i][1],
-      subject: data[i][2],
-      examTime: data[i][3],
-      className: data[i][4],
-      date: d instanceof Date ? Utilities.formatDate(d, TZ, "dd/MM/yyyy HH:mm:ss") : String(d),
-      score: typeof data[i][6] === "number" ? data[i][6] : parseFloat(String(data[i][6]).replace(",", ".")) || 0
+/**
+ * DỌN BÀI NỘP TRÙNG: xóa các dòng giống hệt dòng trước (cùng tên, lớp, môn, hình thức, điểm)
+ * nộp cách nhau dưới 2 phút, giữ lần nộp đầu. NÊN chạy "saoLuu" trước.
+ */
+function xoaBaiNopTrung() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  var total = 0;
+  try {
+    dataSheets_().forEach(function (sheet) {
+      var last = sheet.getLastRow();
+      if (last &lt; 3) return;
+      var data = sheet.getRange(2, 1, last - 1, 7).getValues();
+      var lastSeen = {};
+      var toDelete = [];
+      for (var i = 0; i &lt; data.length; i++) {
+        var t = data[i][5] instanceof Date ? data[i][5].getTime() : NaN;
+        var key = dupKey_(data[i][1], data[i][4], data[i][2], data[i][3], data[i][6]);
+        if (!isNaN(t) &amp;&amp; lastSeen[key] !== undefined &amp;&amp; t - lastSeen[key] &gt;= 0 &amp;&amp; t - lastSeen[key] &lt; DUP_WINDOW_MS) {
+          toDelete.push(i + 2);
+        } else if (!isNaN(t)) {
+          lastSeen[key] = t;
+        }
+      }
+      for (var j = toDelete.length - 1; j &gt;= 0; j--) sheet.deleteRow(toDelete[j]);
+      total += toDelete.length;
     });
+    CacheService.getScriptCache().removeAll(listYears_().concat(["all"]).map(function (y) { return cachePrefix_(y) + "n"; }));
+    Logger.log("Đã xóa " + total + " bài nộp trùng.");
+  } finally {
+    lock.releaseLock();
   }
-  return result;
+}
+
+/**
+ * SAO LƯU: tạo bản sao toàn bộ Google Sheet trong Google Drive của bạn.
+ * Lần đầu chạy Google sẽ hỏi cấp quyền — bấm "Cho phép".
+ */
+function saoLuu() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var copy = ss.copy("Sao lưu - " + ss.getName() + " - " + Utilities.formatDate(new Date(), TZ, "dd-MM-yyyy HH'h'mm"));
+  Logger.log("Đã sao lưu: " + copy.getUrl());
 }</textarea>
+                    <button class="btn-outline" style="margin-top: 8px;" onclick="copyGasCode()"><i class="fa-regular fa-copy"></i> Sao chép mã</button>
+                    <span id="gasCopyStatus" style="font-size: 12px; color: var(--c-green); margin-left: 8px;"></span>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
-                    <label style="font-weight: 600;">Bước 2: Dán Web App URL vào đây</label>
-                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Copy đường link Web App URL sinh ra sau khi Deploy và dán vào ô dưới đây. Link này sẽ đảm nhiệm cả việc gửi điểm và vẽ biểu đồ.</p>
+                    <label style="font-weight: 600;">Bước 2: Dán URL Ứng dụng web</label>
                     <input type="text" id="webhookUrl" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
-                    <button class="btn-primary" style="margin-top: 10px; width: 100%; padding: 12px; font-size: 14px; font-weight: bold; text-transform: uppercase;" onclick="fetchChartData()"><i class="fa-solid fa-cloud-arrow-up"></i> Lưu Cấu Hình URL & Cập Nhật Dữ Liệu</button>
-                    <p id="csvStatus" style="font-size:12px; margin-top:5px; color:var(--c-green);"></p>
+                    <label style="font-weight: 600; margin-top: 14px; display:block;">Mã đọc dữ liệu</label>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="readKeyInput" class="form-control" spellcheck="false" style="font-family: monospace;" oninput="onReadKeyInput()">
+                        <button class="btn-outline" style="white-space:nowrap;" onclick="regenerateReadKey()" title="Tạo mã mới (phải dán lại mã Apps Script)"><i class="fa-solid fa-rotate"></i> Tạo mã mới</button>
+                    </div>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">Dùng máy khác? Nhập đúng mã đang có trong Apps Script. Đổi mã thì phải dán lại mã Apps Script và triển khai phiên bản mới.</p>
+                    <button class="btn-primary" style="margin-top: 10px; width: 100%; padding: 12px; font-size: 14px; font-weight: bold; text-transform: uppercase;" onclick="saveSheetConfigAndCheck()"><i class="fa-solid fa-plug-circle-check"></i> Lưu & kiểm tra kết nối</button>
+                    <p id="csvStatus" style="font-size:13px; margin-top:8px; color:var(--c-green);"></p>
+                </div>
+
+                <details style="font-size: 13px; color: var(--text-muted); padding-top: 12px; border-top: 1px solid var(--border-color);">
+                    <summary style="cursor:pointer; font-weight:600; color: var(--text-main, #333);"><i class="fa-solid fa-screwdriver-wrench"></i> Công cụ trong Apps Script (chọn tên hàm ở thanh công cụ rồi bấm "Chạy")</summary>
+                    <ul style="margin: 8px 0 0 18px; line-height: 1.7;">
+                        <li><strong>saoLuu</strong>: tạo bản sao toàn bộ Google Sheet trong Drive của bạn. Nên chạy mỗi cuối học kỳ.</li>
+                        <li><strong>xoaBaiNopTrung</strong>: xóa các bài bị ghi trùng (giống hệt, cách nhau dưới 2 phút). Nên chạy <em>saoLuu</em> trước.</li>
+                    </ul>
+                </details>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-robot"></i> AI dự phòng (tùy chọn)</div>
+                </div>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Robot dùng DeepSeek (kết nối ở trang chủ). Khi DeepSeek lỗi hoặc hết hạn mức, Robot thử các dịch vụ dưới đây nếu bạn nhập key. Key chỉ lưu trên máy này.</p>
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 14px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>OpenRouter API Key</label>
+                        <input type="password" id="openRouterKeyInput" class="form-control" placeholder="sk-or-v1-..." autocomplete="off">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Groq API Key</label>
+                        <input type="password" id="groqKeyInput" class="form-control" placeholder="gsk_..." autocomplete="off">
+                    </div>
+                </div>
+                <button class="btn-outline" style="margin-top: 12px;" onclick="saveFallbackKeys()"><i class="fa-solid fa-floppy-disk"></i> Lưu key</button>
+                <span id="fallbackKeyStatus" style="font-size: 12px; color: var(--c-green); margin-left: 8px;"></span>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-brands fa-github"></i> Đăng đề lên GitHub (gửi link cho học sinh)</div>
+                </div>
+                <div id="ghWebWarning" style="display:none; background:#fff3cd; color:#664d03; border:1px solid #ffe69c; border-radius:8px; padding:12px; font-size:13px; margin-bottom:14px;">
+                    <b>⚠️ Bạn đang mở bản web.</b> Vì an toàn, chỉ nhập token GitHub trên phần mềm chạy ở máy tính (mở bằng <b>MO_TOOL_GIAO_DUC.bat</b>): các trang GitHub Pages của cùng một tài khoản dùng chung bộ nhớ trình duyệt.
+                </div>
+                <details style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+                    <summary style="cursor:pointer; font-weight:600;">Hướng dẫn cài đặt lần đầu (khoảng 5 phút)</summary>
+                    <ol style="margin: 8px 0 0 18px; line-height: 1.8;">
+                        <li>Vào <b>github.com › New repository</b>, đặt tên (ví dụ <code>de-thi</code>), chọn <b>Public</b>, tích <b>Add a README file</b>, bấm <b>Create repository</b>.</li>
+                        <li>Trong kho vừa tạo: <b>Settings › Pages</b> › Source: <b>Deploy from a branch</b> › Branch: <b>main</b> / <b>(root)</b> › <b>Save</b>.</li>
+                        <li>Tạo token: ảnh đại diện › <b>Settings › Developer settings › Personal access tokens › Fine-grained tokens › Generate new token</b>.
+                            Expiration: 1 năm · Repository access: <b>Only select repositories</b> › chọn kho đề thi · Permissions › Repository permissions › <b>Contents: Read and write</b>. Bấm Generate rồi copy token.</li>
+                        <li>Điền các ô bên dưới rồi bấm <b>Lưu &amp; kiểm tra</b>.</li>
+                    </ol>
+                    <p style="margin-top:8px;">Lưu ý: kho công khai nên ai có link đều xem được đề (kể cả đáp án trong mã trang). Hãy <b>gỡ đề</b> sau khi thi xong. Nên dùng kho riêng cho đề thi, không dùng chung kho mã nguồn phần mềm.</p>
+                </details>
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 14px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Tài khoản GitHub</label>
+                        <input type="text" id="ghOwner" class="form-control" placeholder="vd: truongthaihoavt2010-arch" autocomplete="off">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Tên kho đề thi</label>
+                        <input type="text" id="ghRepo" class="form-control" placeholder="vd: de-thi" autocomplete="off">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Thư mục trong kho</label>
+                        <input type="text" id="ghFolder" class="form-control" placeholder="de" autocomplete="off">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Nhánh</label>
+                        <input type="text" id="ghBranch" class="form-control" placeholder="main" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group" style="margin: 14px 0 0;">
+                    <label>Token (fine-grained, chỉ quyền Contents cho kho đề thi)</label>
+                    <input type="password" id="ghToken" class="form-control" placeholder="github_pat_..." autocomplete="off">
+                </div>
+                <div style="display:flex; gap:10px; margin-top: 12px; flex-wrap: wrap;">
+                    <button class="btn-primary" onclick="saveGithubConfig()"><i class="fa-solid fa-plug-circle-check"></i> Lưu &amp; kiểm tra</button>
+                    <button class="btn-outline" onclick="clearGithubToken()"><i class="fa-solid fa-eraser"></i> Xóa token khỏi máy này</button>
+                </div>
+                <p id="ghStatus" style="font-size:13px; margin-top:8px;"></p>
+
+                <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color);">
+                    <div style="font-weight: 600; margin-bottom: 10px;"><i class="fa-solid fa-list"></i> Đề đã đăng</div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead><tr><th>Đề</th><th>Ngày đăng</th><th>Link</th><th>Hành động</th></tr></thead>
+                            <tbody id="publishedBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
+    <!-- Modal Danh sách học sinh -->
+    <div id="studentsModal" class="modal-overlay">
+        <div class="modal-content" style="width: 560px; max-width: 95%;">
+            <div class="modal-header">
+                <h3 id="studentsModalTitle">Danh sách học sinh</h3>
+                <button class="close-btn" onclick="closeStudentsModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 12px 0 8px;">Mỗi dòng một học sinh. Có thể dán cả cột họ tên từ Excel. Số thứ tự đầu dòng (nếu có) sẽ được tự bỏ.</p>
+            <textarea id="studentsInput" class="form-control" rows="14" style="font-size: 14px; line-height: 1.5;" placeholder="Nguyễn Văn An&#10;Trần Thị Bình&#10;..."></textarea>
+            <div style="display:flex; justify-content: space-between; align-items:center; margin-top: 12px; gap: 10px;">
+                <span id="studentsCount" style="font-size: 13px; color: var(--text-muted);"></span>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-outline" onclick="closeStudentsModal()">Hủy</button>
+                    <button class="btn-primary" onclick="saveStudentsList()"><i class="fa-solid fa-floppy-disk"></i> Lưu danh sách</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Link đề thi -->
+    <div id="publishModal" class="modal-overlay">
+        <div class="modal-content" style="width: 520px; max-width: 95%; text-align: center;">
+            <div class="modal-header">
+                <h3><i class="fa-brands fa-github"></i> Link bài kiểm tra</h3>
+                <button class="close-btn" onclick="closePublishModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p id="publishStatus" style="font-size: 14px; margin: 14px 0;"></p>
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="publishLink" class="form-control" readonly onclick="this.select()">
+                <button class="btn-primary" onclick="copyPublishLink()"><i class="fa-regular fa-copy"></i> Sao chép</button>
+            </div>
+            <div id="publishQr" style="display:flex; justify-content:center; margin: 18px 0 6px; min-height: 10px;"></div>
+            <p style="font-size: 12px; color: var(--text-muted);">Gửi link qua Zalo, hoặc chiếu mã QR để học sinh quét. Mở được trên iPhone, Android và máy tính.</p>
+            <div style="margin-top: 12px;"><a id="publishOpen" href="#" target="_blank" rel="noopener" class="btn-outline" style="text-decoration:none; display:inline-block;"><i class="fa-solid fa-arrow-up-right-from-square"></i> Mở thử</a></div>
+        </div>
+    </div>
+
     <!-- Modal Xem Trước Đề (Review) -->
     <div id="reviewModal" class="modal-overlay">
         <div class="modal-content" style="width: 800px; max-width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
@@ -633,9 +898,18 @@ function readAllRows_() {
             <div class="modal-body" id="reviewModalBody" style="flex: 1; overflow-y: auto; padding: 20px; background: #f9f9f9; text-align: left;">
                 <!-- Nội dung đề thi sẽ hiển thị ở đây -->
             </div>
-            <div style="padding: 20px; text-align: right; border-top: 1px solid var(--border-color); background: white;">
-                <button class="btn-outline" style="margin-right: 10px;" onclick="closeReviewModal()">Đóng</button>
+            <div style="padding: 14px 20px; border-top: 1px solid var(--border-color); background: white; display:flex; flex-wrap: wrap; gap: 10px 18px; align-items:center;">
+                <label style="display:flex; align-items:center; gap:6px; font-size: 13px; cursor:pointer;" title="Mỗi học sinh nhận thứ tự câu hỏi và đáp án khác nhau">
+                    <input type="checkbox" id="optShuffle" onchange="saveExportOptions()"> Xáo trộn câu hỏi &amp; đáp án
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size: 13px; cursor:pointer;" title="Học sinh chọn tên trong danh sách lớp (trang Quản lý lớp học) thay vì tự gõ">
+                    <input type="checkbox" id="optStudentList" onchange="saveExportOptions()"> Học sinh chọn tên từ danh sách lớp
+                </label>
+                <span id="exportOptionNote" style="font-size: 12px; color: var(--text-muted);"></span>
+                <div style="flex:1;"></div>
+                <button class="btn-outline" onclick="closeReviewModal()">Đóng</button>
                 <button class="btn-primary" onclick="exportHTML()"><i class="fa-solid fa-download"></i> Tải xuống HTML</button>
+                <button class="btn-primary" style="background: #24292f;" onclick="publishExam()" title="Đăng đề lên GitHub Pages và lấy link gửi học sinh"><i class="fa-brands fa-github"></i> Đăng lên GitHub &amp; lấy link</button>
             </div>
         </div>
     </div>
@@ -696,7 +970,8 @@ function readAllRows_() {
         <div class="loading-subtext" style="color:var(--text-muted); font-size:14px; margin-top:10px;">Đang thiết lập ma trận đề và xuất dữ liệu.</div>
     </div>
 
+    <script src="../shared/scores.js?v=1"></script>
     <script src="template_data.js"></script>
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
 </body>
 </html>

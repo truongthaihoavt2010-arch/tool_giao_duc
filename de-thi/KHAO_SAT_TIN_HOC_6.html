@@ -173,22 +173,23 @@
             <!-- Chỉ hiện khi JavaScript không chạy (xem trước trong Zalo/Tệp trên iPhone...) -->
             <div id="js-warning" style="background:#fff3cd; color:#664d03; border:1px solid #ffe69c; border-radius:8px; padding:12px; margin-bottom:15px; font-size:14px; line-height:1.5; text-align:left;">
                 <b>⚠️ Không thể làm bài trong khung xem trước này.</b><br>
-                Hãy mở file bằng trình duyệt <b>Safari</b> hoặc <b>Chrome</b>:<br>
-                • iPhone: bấm nút <b>Chia sẻ</b> → <b>Mở trong Safari</b> (hoặc lưu vào Tệp rồi mở bằng Chrome).<br>
-                • Zalo: bấm <b>⋯</b> → <b>Mở bằng trình duyệt</b>.<br>
-                • Android: mở bằng <b>Chrome</b>.
+                • Nếu giáo viên gửi <b>đường link</b>: bấm <b>⋯</b> (góc trên Zalo) → <b>Mở bằng trình duyệt</b>.<br>
+                • Nếu nhận <b>file .html</b>: trên máy tính hoặc Android, mở file bằng <b>Chrome</b>.<br>
+                • iPhone không làm bài được bằng file tải về — hãy xin giáo viên <b>đường link</b> bài kiểm tra.
             </div>
             <form id="startForm">
-                <div class="form-group">
-                    <label>Họ và tên thí sinh:</label>
-                    <input type="text" id="studentName" required placeholder="Nhập họ và tên có dấu...">
-                </div>
                 <div class="form-group" id="class-container">
                     <label>Lớp học:</label>
                     <select id="className" required style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; outline: none; background: white; width: 100%;">
                         <option value="">-- Chọn lớp --</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label>Họ và tên thí sinh:</label>
+                    <select id="studentSelect" style="display:none; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; outline: none; background: white; width: 100%; margin-bottom: 8px;"></select>
+                    <input type="text" id="studentName" required placeholder="Nhập họ và tên có dấu...">
+                </div>
+                <div id="round-info" style="display:none; font-size:13px; color: var(--text-muted); margin: -6px 0 14px; text-align:left;"></div>
                 <button type="submit" class="btn-start"><i class="fa-solid fa-play"></i> BẮT ĐẦU LÀM BÀI</button>
             </form>
         </div>
@@ -332,6 +333,10 @@
         const EXAM_TIME = 15;
         const SUBJECT = "Tin học";
         const ALLOWED_CLASSES = "6A1,6A2,6A3,6A4,6A5,6A6";
+        const EXAM_ROUND = 1;
+        const EXAM_LIMIT = 0;
+        const SHUFFLE = false;
+        const STUDENT_LISTS = {};
     </script>
 
     <!-- LOGIC -->
@@ -352,11 +357,12 @@
         const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
         // INIT — chạy ngay khi HTML sẵn sàng, không chờ font/icon từ Internet (mạng điện thoại chậm)
+        const OTHER_NAME = '__other__';
         function initExam() {
             const jsWarning = document.getElementById('js-warning');
             if (jsWarning) jsWarning.style.display = 'none';
 
-            // Setup classes dynamically
+            // Danh sách lớp
             const classSelect = document.getElementById('className');
             const classList = (typeof ALLOWED_CLASSES !== 'undefined' ? String(ALLOWED_CLASSES) : '')
                 .split(/[,;]/).map(c => c.trim()).filter(c => c);
@@ -368,34 +374,102 @@
                     opt.innerText = c;
                     classSelect.appendChild(opt);
                 });
+                classSelect.addEventListener('change', updateNameField);
             } else {
-                // Fallback to text input if ALLOWED_CLASSES is empty
+                // Không giới hạn lớp: học sinh tự nhập lớp
                 const container = document.getElementById('class-container');
                 if (container) {
                     container.innerHTML = '<label>Lớp học:</label><input type="text" id="className" required placeholder="Ví dụ: 6A1, 9A2..." style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; outline: none; background: white; width: 100%;">';
                 }
             }
+            document.getElementById('studentSelect').addEventListener('change', updateNameField);
 
-            document.getElementById('start-subject-name').innerText = `Môn: ${SUBJECT}`;
-            document.getElementById('header-subject').innerText = `Môn: ${SUBJECT}`;
+            const roundText = examRoundText();
+            document.getElementById('start-subject-name').innerText = `Môn: ${SUBJECT} · ${roundText}`;
+            document.getElementById('header-subject').innerText = `Môn: ${SUBJECT} · ${roundText}`;
             document.getElementById('info-subject').innerText = SUBJECT;
-            
+            if (EXAM_LIMIT > 0) {
+                const info = document.getElementById('round-info');
+                info.style.display = 'block';
+                info.innerText = `Bài này được làm tối đa ${EXAM_LIMIT} lần; điểm được tính là điểm cao nhất trong ${EXAM_LIMIT} lần làm đầu tiên.`;
+            }
+
             document.getElementById('startForm').addEventListener('submit', (e) => {
                 e.preventDefault();
-                studentName = document.getElementById('studentName').value.trim();
+                const sel = document.getElementById('studentSelect');
+                const usingList = sel.style.display !== 'none' && sel.value !== OTHER_NAME;
+                studentName = (usingList ? sel.value : document.getElementById('studentName').value).trim().replace(/\s+/g, ' ');
                 className = document.getElementById('className').value.trim();
+                if (usingList && !studentName) return alert('Vui lòng chọn tên của em trong danh sách.');
                 if(studentName && className) {
                     document.getElementById('info-name').innerText = studentName;
                     document.getElementById('info-class').innerText = className;
                     document.getElementById('start-modal').style.display = 'none';
                     document.getElementById('app-ui').style.display = 'flex';
-                    
+
+                    if (SHUFFLE) shuffleExam();
                     initGrid();
                     renderQuestion(0);
                     updateProgress();
                     startTimer();
                 }
             });
+        }
+
+        function examRoundText() {
+            return `${EXAM_TIME} phút · Lần ${EXAM_ROUND || 1}` + (EXAM_LIMIT > 0 ? ` (tối đa ${EXAM_LIMIT} lần)` : '');
+        }
+
+        // Chọn lớp có danh sách học sinh -> chọn tên trong danh sách (tránh gõ sai tên)
+        function updateNameField() {
+            const cls = (document.getElementById('className').value || '').trim();
+            const sel = document.getElementById('studentSelect');
+            const input = document.getElementById('studentName');
+            const key = Object.keys(STUDENT_LISTS || {}).find(k => k.trim().toLowerCase() === cls.toLowerCase());
+            const names = key ? STUDENT_LISTS[key] : null;
+            if (names && names.length) {
+                if (sel.dataset.cls !== cls) {
+                    sel.dataset.cls = cls;
+                    sel.innerHTML = '<option value="">-- Chọn tên của em --</option>';
+                    names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+                    const other = document.createElement('option');
+                    other.value = OTHER_NAME;
+                    other.textContent = '(Tên em không có trong danh sách — nhập tay)';
+                    sel.appendChild(other);
+                }
+                sel.style.display = 'block';
+                const manual = sel.value === OTHER_NAME;
+                input.style.display = manual ? 'block' : 'none';
+                input.required = manual;
+                sel.required = !manual;
+            } else {
+                sel.style.display = 'none';
+                sel.required = false;
+                input.style.display = 'block';
+                input.required = true;
+            }
+        }
+
+        // Xáo trộn thứ tự câu hỏi và đáp án cho mỗi học sinh (giữ nguyên đáp án đúng)
+        function shuffleArray(a) {
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+        function shuffleExam() {
+            // Không đảo đáp án kiểu "Tất cả đều đúng", "Cả A và B"... vì phụ thuộc vị trí
+            const positional = /tất cả|cả\s+[a-d]\s+(và|,)|cả hai|không có đáp án|các đáp án (trên|đều)|đáp án khác|^[a-d]\s*(và|,)\s*[a-d]/i;
+            const qs = shuffleArray(EXAM_DATA.slice());
+            qs.forEach(q => {
+                const isMcq = q.type === 'mcq' || (!q.type && Array.isArray(q.options) && q.options.length > 2);
+                if (!isMcq || !Array.isArray(q.options) || q.options.some(o => positional.test(String(o)))) return;
+                const order = shuffleArray(q.options.map((_, i) => i));
+                q.options = order.map(i => q.options[i]);
+                q.correctAnswerIndex = order.indexOf(q.correctAnswerIndex);
+            });
+            EXAM_DATA.splice(0, EXAM_DATA.length, ...qs);
         }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initExam);
         else initExam();
@@ -658,8 +732,10 @@
         // hoặc ném lỗi nếu thất bại
         async function postScoreOnce(url, payload) {
             const body = new URLSearchParams(payload).toString();
+            // Chờ lâu (90 giây): Google có lúc mất gần 30 giây nhưng VẪN ghi điểm.
+            // Nếu hủy sớm rồi gửi lại sẽ tạo bài nộp trùng.
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 25000);
+            const timer = setTimeout(() => controller.abort(), 90000);
             try {
                 let res;
                 try {
@@ -764,7 +840,11 @@
         });
 
         async function doSubmit() {
+            // Chặn nộp lặp: bấm nhiều lần, hoặc hết giờ đúng lúc đang nộp
+            if (isSubmitted) return;
             isSubmitted = true;
+            const btnSubmit = document.getElementById('btn-submit');
+            if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.6'; btnSubmit.style.pointerEvents = 'none'; }
             clearInterval(timerInterval);
             
             // Show loading
@@ -780,8 +860,11 @@
             // Gửi dữ liệu lên Google Sheets (có xác nhận, thử lại, lưu tạm khi lỗi)
             let sendStatus = null;
             if (WEBHOOK_URL) {
+                // examTime dạng "Lần 1 - Tối đa 5 lần - 15": Apps Script cũ tự nối " Phút" -> vẫn đọc đúng
+                const examTimeParam = `Lần ${EXAM_ROUND || 1}` + (EXAM_LIMIT > 0 ? ` - Tối đa ${EXAM_LIMIT} lần` : '') + ` - ${EXAM_TIME}`;
                 const payload = {
-                    name: studentName, subject: SUBJECT, examTime: EXAM_TIME,
+                    name: studentName, subject: SUBJECT, examTime: examTimeParam,
+                    minutes: EXAM_TIME, round: EXAM_ROUND || 1, limit: EXAM_LIMIT || 0,
                     className: className, score: scale10,
                     submissionId: Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
                 };

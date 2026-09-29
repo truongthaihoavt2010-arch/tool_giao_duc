@@ -1,7 +1,4 @@
-// Cấu hình API Keys
-// LƯU Ý: Nhập API Key của bạn vào đây hoặc sử dụng DeepSeek config từ trang chủ
-const OPENROUTER_API_KEY = ''; // Nhập OpenRouter API Key của bạn
-const GROQ_API_KEY = ''; // Nhập Groq API Key của bạn
+// API Key: DeepSeek cấu hình ở trang chủ; OpenRouter/Groq (dự phòng) nhập ở trang "Google Sheets" -> lưu trên máy (robotAiKeys)
 
 // ======= DEEPSEEK CONFIG (nhận từ parent hoặc localStorage) =======
 let DEEPSEEK_API_KEY = '';
@@ -37,7 +34,6 @@ let lineChartInstance = null;
 let extractedFileText = "";
 let aiKnowledgeText = "";
 let chatHistory = [];
-let globalGoogleSheetData = [];
 
 // ======= 1. SPA ROUTING =======
 function switchPage(pageId, menuItemEl) {
@@ -120,8 +116,8 @@ function updateStatsUI() {
                     <i class="fa-solid fa-file-lines"></i>
                 </div>
                 <div class="recent-info flex-1">
-                    <h4>${exam.title}</h4>
-                    <p>${exam.subject} ${exam.grade} • ${exam.numQuestions} câu • Tạo lúc: ${dateStr}</p>
+                    <h4>${esc(exam.title)}</h4>
+                    <p>${esc(exam.subject)} ${esc(exam.grade)} • ${exam.numQuestions} câu • Tạo lúc: ${dateStr}</p>
                 </div>
             </div>`;
         });
@@ -138,9 +134,9 @@ function renderExamsTable() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><input type="checkbox" class="row-checkbox" value="${exam.id}"></td>
-                <td style="font-weight:600; color:var(--primary)">${exam.title || 'Chưa đặt tên'}</td>
-                <td>${exam.subject || '-'}</td>
-                <td>${exam.grade || '-'}</td>
+                <td style="font-weight:600; color:var(--primary)">${esc(exam.title || 'Chưa đặt tên')}</td>
+                <td>${esc(exam.subject || '-')}</td>
+                <td>${esc(exam.grade || '-')}</td>
                 <td>${exam.numQuestions || 0}</td>
                 <td>${exam.timestamp ? new Date(exam.timestamp).toLocaleDateString("vi-VN") : '-'}</td>
                 <td>
@@ -174,8 +170,8 @@ function renderQuestionsTable() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><input type="checkbox" class="row-checkbox" value="${index}"></td>
-                <td><span style="background:${color}; color:white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">${q.difficulty}</span></td>
-                <td>${q.question}</td>
+                <td><span style="background:${color}; color:white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">${esc(q.difficulty)}</span></td>
+                <td>${esc(q.question)}</td>
                 <td>
                     <button class="btn-view" onclick="editQuestion(${index})"><i class="fa-solid fa-pen"></i> Sửa</button>
                     <button class="btn-view" onclick="deleteQuestion(${index})" style="color:var(--c-red); margin-left: 5px;"><i class="fa-solid fa-trash"></i></button>
@@ -295,17 +291,79 @@ function renderClassesTable() {
     if (tbody) {
         tbody.innerHTML = '';
         classes.forEach(c => {
+            const n = Array.isArray(c.students) ? c.students.length : 0;
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>Khối ${c.grade}</td>
-                <td style="font-weight:600;">Lớp ${c.name}</td>
+                <td>Khối ${esc(c.grade)}</td>
+                <td style="font-weight:600;">Lớp ${esc(c.name)}</td>
+                <td>${n ? `<span style="color:var(--c-green); font-weight:600;">${n} học sinh</span>` : '<span style="color:var(--text-muted);">Chưa có</span>'}</td>
                 <td>
-                    <button class="btn-view" style="color:var(--c-red);" onclick="deleteClass(${c.id})"><i class="fa-solid fa-trash"></i> Xóa</button>
+                    <button class="btn-view" onclick="openStudentsModal(${c.id})"><i class="fa-solid fa-user-group"></i> Danh sách</button>
+                    <button class="btn-view" style="color:var(--c-red); margin-left:5px;" onclick="deleteClass(${c.id})"><i class="fa-solid fa-trash"></i> Xóa</button>
                 </td>
             `;
             tbody.appendChild(tr);
         });
     }
+}
+
+// ======= DANH SÁCH HỌC SINH THEO LỚP =======
+let editingClassId = null;
+
+function parseStudentNames(text) {
+    const seen = new Set();
+    return String(text || '').split(/\r?\n/)
+        .map(line => line.split('\t').map(x => x.trim()).filter(Boolean))
+        // Dán từ Excel: bỏ cột số thứ tự, lấy cột chữ đầu tiên
+        .map(cells => cells.find(x => !/^\d+[.)]?$/.test(x)) || '')
+        .map(n => n.replace(/^\d+\s*[.)\-:]\s*/, '').replace(/\s+/g, ' ').trim())
+        .filter(n => {
+            const k = n.toLowerCase();
+            if (!n || seen.has(k)) return false;
+            seen.add(k);
+            return true;
+        });
+}
+
+function openStudentsModal(id) {
+    const c = getClasses().find(x => x.id === id);
+    if (!c) return;
+    editingClassId = id;
+    document.getElementById('studentsModalTitle').innerText = `Danh sách học sinh lớp ${c.name}`;
+    const input = document.getElementById('studentsInput');
+    input.value = (c.students || []).join('\n');
+    const count = () => { document.getElementById('studentsCount').innerText = `${parseStudentNames(input.value).length} học sinh`; };
+    input.oninput = count;
+    count();
+    document.getElementById('studentsModal').classList.add('active');
+    setTimeout(() => input.focus(), 50);
+}
+
+function closeStudentsModal() {
+    document.getElementById('studentsModal').classList.remove('active');
+    editingClassId = null;
+}
+
+function saveStudentsList() {
+    const classes = getClasses();
+    const c = classes.find(x => x.id === editingClassId);
+    if (!c) return closeStudentsModal();
+    c.students = parseStudentNames(document.getElementById('studentsInput').value);
+    lsSet('robotClasses', JSON.stringify(classes));
+    closeStudentsModal();
+    renderClassesTable();
+    updateExportOptionNote();
+}
+
+// { "6A1": ["Nguyễn Văn An", ...] } cho các lớp áp dụng có danh sách
+function getStudentListsFor(classNames) {
+    const classes = getClasses();
+    const out = {};
+    classNames.forEach(name => {
+        const c = classes.find(x => String(x.name).trim().toLowerCase() === String(name).trim().toLowerCase());
+        if (c && Array.isArray(c.students) && c.students.length) out[name] = c.students.slice();
+    });
+    return out;
 }
 
 function addClass() {
@@ -633,244 +691,292 @@ function balanceDifficultyQuota(questions, diffQuota) {
     return questions;
 }
 
-// Thời gian nộp (dd/MM/yyyy HH:mm:ss hoặc ISO) -> mili giây
-function parseSubmitTime(v) {
-    if (!v) return NaN;
-    const m = String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
-    if (m) return new Date(+m[3], m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)).getTime();
-    return Date.parse(v);
+// ======= GOOGLE SHEETS: CẤU HÌNH, ĐỌC DỮ LIỆU, KẾT QUẢ =======
+// Dữ liệu thô từ Google Sheets (mọi năm học); xử lý bằng EduScores (shared/scores.js)
+let sheetRows = [];
+
+function lsGet(k, d = '') { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+const esc = v => EduScores.escapeHtml(v);
+
+// Mã đọc dữ liệu: chỉ ai có mã mới xem được điểm (được điền sẵn vào mã Apps Script)
+function generateReadKey() {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    const a = new Uint8Array(16);
+    crypto.getRandomValues(a);
+    return Array.from(a, b => chars[b % chars.length]).join('');
+}
+function getReadKey() {
+    let k = lsGet('robotReadKey').trim();
+    if (!k) { k = generateReadKey(); lsSet('robotReadKey', k); }
+    return k;
 }
 
-// Bỏ qua bài nộp trùng: cùng tên + lớp + môn + hình thức + điểm, nộp cách nhau dưới 2 phút (giữ lần đầu)
-function dedupeSubmissions(rows) {
-    const norm = v => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
-    const order = rows.map((r, i) => ({ r, i, t: parseSubmitTime(r.date) }))
-        .sort((a, b) => (isNaN(a.t) || isNaN(b.t)) ? a.i - b.i : a.t - b.t);
-    const lastKept = {}, drop = new Set();
-    for (const { r, i, t } of order) {
-        if (isNaN(t)) continue;
-        const score = parseFloat(String(r.score ?? '').replace(',', '.'));
-        const key = [norm(r.name), norm(r.className), norm(r.subject), norm(r.examTime), isNaN(score) ? norm(r.score) : score.toFixed(2)].join('|');
-        if (lastKept[key] !== undefined && t - lastKept[key] < 120000) drop.add(i);
-        else lastKept[key] = t;
-    }
-    if (drop.size) console.info(`[Google Sheets] Bỏ qua ${drop.size} bài nộp trùng`);
-    return rows.filter((_, i) => !drop.has(i));
+let gasTemplate = null;
+function renderGasCode() {
+    const ta = document.getElementById('gasCode');
+    if (!ta) return;
+    if (gasTemplate === null) gasTemplate = ta.value;
+    const input = document.getElementById('readKeyInput');
+    const key = (input && input.value.trim()) || getReadKey();
+    ta.value = gasTemplate.replace('var READ_KEY = "";', 'var READ_KEY = ' + JSON.stringify(key) + ';');
 }
-
-async function fetchChartData() {
-    const url = document.getElementById('webhookUrl').value.trim();
-    if (!url) return alert('Vui lòng dán Web App URL vào ô Bước 2 để kết nối.');
-    
-    localStorage.setItem("robotWebhookUrl", url);
-    document.getElementById('csvStatus').innerText = "Đang kết nối tải dữ liệu...";
+function onReadKeyInput() { renderGasCode(); }
+function regenerateReadKey() {
+    if (!confirm('Tạo mã đọc dữ liệu mới?\nSau đó bạn PHẢI dán lại mã Apps Script và triển khai Phiên bản mới, nếu không app sẽ không đọc được điểm.')) return;
+    document.getElementById('readKeyInput').value = generateReadKey();
+    renderGasCode();
+}
+async function copyGasCode() {
+    const ta = document.getElementById('gasCode');
+    const status = document.getElementById('gasCopyStatus');
+    const key = document.getElementById('readKeyInput').value.trim();
+    if (key) lsSet('robotReadKey', key);
     try {
-        // Apps Script thỉnh thoảng lỗi tạm thời (nhất là khi Sheet nhiều dòng): thử tối đa 3 lần
-        let dataJson, lastErr;
-        for (let attempt = 1; attempt <= 3 && dataJson === undefined; attempt++) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), attempt < 3 ? 15000 : 40000); // Bình thường 3–5 giây; treo thì thử lại sớm
-            try {
-                const response = await fetch(url, { signal: controller.signal });
-                if (!response.ok) throw new Error("Lỗi kết nối Web App URL (HTTP " + response.status + "). Vui lòng kiểm tra lại đường link.");
-                const text = await response.text();
-                try {
-                    dataJson = JSON.parse(text);
-                } catch (e) {
-                    throw new Error("Dữ liệu trả về không phải là JSON hợp lệ. Đảm bảo bạn copy đúng Web App URL.");
-                }
-            } catch (e) {
-                lastErr = controller.signal.aborted ? new Error("Google Sheets phản hồi quá lâu.") : e;
-                console.warn(`[Google Sheets] Lần ${attempt} thất bại:`, lastErr.message);
-                if (attempt < 3) {
-                    document.getElementById('csvStatus').innerText = `Kết nối chưa được, đang thử lại (lần ${attempt + 1}/3)...`;
-                    await new Promise(r => setTimeout(r, attempt * 2000));
-                }
-            } finally {
-                clearTimeout(timer);
-            }
-        }
-        if (dataJson === undefined) throw lastErr;
-        
-        if (!Array.isArray(dataJson)) throw new Error("Dữ liệu không đúng định dạng mảng.");
-        dataJson = dedupeSubmissions(dataJson);
-
-        globalGoogleSheetData = dataJson;
-        renderResultsClasses();
-
-        let dateMap = {}; 
-        let totalHocSinh = dataJson.length;
-        
-        dataJson.forEach(row => {
-            let score = parseFloat(row.score) || 0;
-            let dateStr = "Chưa rõ";
-            if (row.date && typeof row.date === 'string') {
-                let dm = row.date.match(/^(\d{1,2})\/(\d{1,2})/);
-                if (dm) {
-                    dateStr = dm[1].padStart(2, '0') + "/" + dm[2].padStart(2, '0');
-                } else {
-                    // Apps Script bản cũ: Sheet tự đổi thời gian nộp thành kiểu ngày -> JSON dạng ISO
-                    let d = new Date(row.date);
-                    if (!isNaN(d)) {
-                        let vn = new Date(d.getTime() + 7 * 3600 * 1000);
-                        dateStr = String(vn.getUTCDate()).padStart(2, '0') + "/" + String(vn.getUTCMonth() + 1).padStart(2, '0');
-                        row.date = dateStr + "/" + vn.getUTCFullYear() + " " + String(vn.getUTCHours()).padStart(2, '0') + ":" + String(vn.getUTCMinutes()).padStart(2, '0');
-                    }
-                }
-            }
-            if (!dateMap[dateStr]) dateMap[dateStr] = { totalScore: 0, count: 0 };
-            dateMap[dateStr].totalScore += score;
-            dateMap[dateStr].count += 1;
-        });
-
-        let labels = [];
-        let data = [];
-        let tongDiemTBToanBo = 0;
-
-        for (let date in dateMap) {
-            labels.push(date);
-            let avg = dateMap[date].totalScore / dateMap[date].count;
-            data.push(avg.toFixed(1));
-            tongDiemTBToanBo += dateMap[date].totalScore;
-        }
-        
-        if (labels.length > 0) {
-            lineChartInstance.data.labels = labels;
-            lineChartInstance.data.datasets[0].data = data;
-            lineChartInstance.update();
-            
-            document.querySelectorAll('.stat-card h3')[2].innerText = totalHocSinh; 
-            document.querySelectorAll('.stat-card h3')[3].innerText = totalHocSinh; 
-            
-            let diemTrungBinhCuaCacNgay = totalHocSinh > 0 ? (tongDiemTBToanBo / totalHocSinh).toFixed(1) : "0";
-            document.querySelectorAll('.stat-card h3')[4].innerHTML = diemTrungBinhCuaCacNgay + '<span style="font-size:14px;color:var(--text-muted)">/10</span>';
-            
-            const highlightBoxes = document.querySelectorAll('.sh-box h2');
-            if(highlightBoxes.length >= 3) highlightBoxes[2].innerText = totalHocSinh; 
-
-            document.getElementById('csvStatus').innerText = "Cập nhật dữ liệu từ Google Sheets thành công!";
-            document.getElementById('csvStatus').style.color = "var(--c-green)";
-        } else {
-            document.getElementById('csvStatus').innerText = "Google Sheets đang trống, chưa có dữ liệu nào.";
-            document.getElementById('csvStatus').style.color = "orange";
-        }
+        await navigator.clipboard.writeText(ta.value);
     } catch (e) {
-        document.getElementById('csvStatus').innerText = "Lỗi tải dữ liệu: " + e.message;
-        document.getElementById('csvStatus').style.color = "red";
+        ta.select();
+        document.execCommand('copy');
+    }
+    status.innerText = 'Đã sao chép! Dán vào Apps Script rồi triển khai.';
+    setTimeout(() => { status.innerText = ''; }, 4000);
+}
+
+function initSheetSettings() {
+    const url = document.getElementById('webhookUrl');
+    if (url) url.value = lsGet('robotWebhookUrl');
+    const key = document.getElementById('readKeyInput');
+    if (key) key.value = getReadKey();
+    renderGasCode();
+    const ai = getFallbackKeys();
+    const or = document.getElementById('openRouterKeyInput');
+    const gq = document.getElementById('groqKeyInput');
+    if (or) or.value = ai.openrouter;
+    if (gq) gq.value = ai.groq;
+}
+
+// Gọi Apps Script, thử lại khi Google lỗi tạm thời. Trả về JSON.
+async function fetchSheetJson(params, onRetry) {
+    const base = lsGet('robotWebhookUrl').trim();
+    if (!base) throw new Error('Chưa cấu hình URL Google Sheets (trang "Google Sheets").');
+    const u = new URL(base);
+    Object.entries(Object.assign({ key: getReadKey() }, params || {})).forEach(([k, v]) => { if (v != null && v !== '') u.searchParams.set(k, v); });
+
+    let lastErr;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), [30000, 45000, 60000][attempt - 1]); // Google thường 3–20 giây, có lúc chậm hơn
+        try {
+            const res = await fetch(u.toString(), { signal: controller.signal });
+            if (!res.ok) throw new Error('Lỗi kết nối Web App URL (HTTP ' + res.status + ').');
+            const text = await res.text();
+            let json;
+            try { json = JSON.parse(text); } catch (e) { throw new Error('Google trả về dữ liệu không hợp lệ (có thể đang quá tải hoặc sai URL).'); }
+            if (json && json.code === 'unauthorized') {
+                const err = new Error('Sai mã đọc dữ liệu. Mã trong ô "Mã đọc dữ liệu" phải giống mã trong Apps Script.');
+                err.fatal = true;
+                throw err;
+            }
+            return json;
+        } catch (e) {
+            if (e.fatal) throw e;
+            lastErr = controller.signal.aborted ? new Error('Google Sheets phản hồi quá lâu.') : e;
+            console.warn(`[Google Sheets] Lần ${attempt} thất bại:`, lastErr.message);
+            if (attempt < 3) {
+                if (onRetry) onRetry(attempt + 1);
+                await new Promise(r => setTimeout(r, attempt * 2000));
+            }
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+    throw lastErr;
+}
+
+function setSheetStatus(text, color) {
+    const el = document.getElementById('csvStatus');
+    if (!el) return;
+    el.innerText = text;
+    el.style.color = color || 'var(--c-green)';
+}
+
+async function saveSheetConfigAndCheck() {
+    const url = document.getElementById('webhookUrl').value.trim();
+    const key = document.getElementById('readKeyInput').value.trim();
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec/.test(url)) {
+        return setSheetStatus('URL không đúng dạng https://script.google.com/macros/s/.../exec', 'red');
+    }
+    if (!key) return setSheetStatus('Vui lòng nhập mã đọc dữ liệu (hoặc bấm "Tạo mã mới").', 'red');
+    lsSet('robotWebhookUrl', url);
+    lsSet('robotReadKey', key);
+    setSheetStatus('Đang kiểm tra kết nối...', 'var(--text-muted)');
+    try {
+        const info = await fetchSheetJson({ action: 'info' }, n => setSheetStatus(`Kết nối chưa được, đang thử lại (lần ${n}/3)...`, 'orange'));
+        if (Array.isArray(info)) {
+            setSheetStatus('⚠️ Kết nối được, nhưng Google đang chạy Apps Script CŨ: điểm chưa được bảo vệ bằng mã và chưa chia theo năm học. Hãy dán mã ở Bước 1 rồi triển khai "Phiên bản mới".', 'orange');
+        } else if (info && info.status === 'success') {
+            const prot = info.protected ? 'đã bảo vệ bằng mã đọc' : '⚠️ CHƯA đặt mã đọc (ai có URL đều xem được điểm)';
+            setSheetStatus(`✅ Kết nối thành công · Apps Script phiên bản ${info.version} · ${prot} · Năm học có dữ liệu: ${(info.years || []).join(', ')}`, info.protected ? 'var(--c-green)' : 'orange');
+        } else {
+            throw new Error('Phản hồi không đúng. Kiểm tra lại URL.');
+        }
+        await fetchChartData(true);
+    } catch (e) {
+        setSheetStatus('❌ ' + e.message, 'red');
     }
 }
 
-// ======= XEM KẾT QUẢ TỪ GOOGLE SHEETS =======
+// Tải dữ liệu (mọi năm học) rồi cập nhật trang chủ + trang Xem kết quả
+async function fetchChartData(keepStatus) {
+    if (!lsGet('robotWebhookUrl').trim()) {
+        if (!keepStatus) setSheetStatus('Chưa cấu hình URL Google Sheets.', 'orange');
+        return;
+    }
+    if (!keepStatus) setSheetStatus('Đang tải dữ liệu từ Google Sheets...', 'var(--text-muted)');
+    try {
+        const rows = await fetchSheetJson({ year: 'all' }, n => { if (!keepStatus) setSheetStatus(`Kết nối chưa được, đang thử lại (lần ${n}/3)...`, 'orange'); });
+        if (!Array.isArray(rows)) throw new Error('Dữ liệu không đúng định dạng.');
+        sheetRows = rows;
+        renderResultsYears();
+        renderResultsClasses();
+        updateHomeStats();
+        if (!keepStatus) setSheetStatus(`Đã tải ${rows.length} bài nộp từ Google Sheets.`);
+    } catch (e) {
+        setSheetStatus('Lỗi tải dữ liệu: ' + e.message, 'red');
+    }
+}
+
+// Trang chủ: số học sinh, lượt làm bài, điểm TB (điểm cao nhất mỗi lần kiểm tra) của năm học hiện tại
+function updateHomeStats() {
+    const r = EduScores.process(sheetRows, { year: EduScores.currentSchoolYear() });
+    const cards = document.querySelectorAll('.stat-card h3');
+    const students = new Set(r.best.map(b => EduScores.normKey(b.name) + '|' + EduScores.normKey(b.className))).size;
+    const counted = r.all.filter(x => !x.dup).length;
+    const avg = r.best.length ? (r.best.reduce((s, b) => s + b.score, 0) / r.best.length).toFixed(1) : '-';
+    if (cards[2]) cards[2].innerText = students;
+    if (cards[3]) cards[3].innerText = counted;
+    if (cards[4]) cards[4].innerHTML = esc(avg) + '<span style="font-size:14px;color:var(--text-muted)">/10</span>';
+
+    // Biểu đồ: điểm TB theo ngày
+    const byDay = new Map();
+    r.best.filter(b => !isNaN(b.time)).sort((a, b) => a.time - b.time).forEach(b => {
+        const d = new Date(b.time);
+        const k = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+        if (!byDay.has(k)) byDay.set(k, []);
+        byDay.get(k).push(b.score);
+    });
+    if (lineChartInstance && byDay.size) {
+        lineChartInstance.data.labels = [...byDay.keys()];
+        lineChartInstance.data.datasets[0].data = [...byDay.values()].map(a => (a.reduce((s, x) => s + x, 0) / a.length).toFixed(1));
+        lineChartInstance.update();
+    }
+}
+
+// ======= XEM KẾT QUẢ (điểm cao nhất mỗi lần kiểm tra) =======
+function renderResultsYears() {
+    const sel = document.getElementById('resultsYearSelect');
+    if (!sel) return;
+    const cur = sel.value || EduScores.currentSchoolYear();
+    sel.innerHTML = EduScores.listSchoolYears(sheetRows).map(y => `<option value="${esc(y)}">Năm học ${esc(y)}</option>`).join('');
+    sel.value = [...sel.options].some(o => o.value === cur) ? cur : sel.options[0].value;
+}
+
+function getResultsBest() {
+    const year = document.getElementById('resultsYearSelect')?.value || EduScores.currentSchoolYear();
+    return EduScores.process(sheetRows, { year }).best;
+}
+
 function renderResultsClasses() {
     const select = document.getElementById('resultsClassSelect');
     if (!select) return;
-    
-    let currentVal = select.value;
-    select.innerHTML = '<option value="">-- Tất cả các lớp --</option>';
-    
-    let classes = new Set();
-    globalGoogleSheetData.forEach(row => {
-        if (row.className) classes.add(row.className.trim());
-    });
-    
-    // Sắp xếp tự nhiên: 6A1, 6A2, ..., 6A10, 7A1
-    let sortedClasses = Array.from(classes).sort((a, b) => a.localeCompare(b, 'vi', { numeric: true, sensitivity: 'base' }));
-    sortedClasses.forEach(c => {
-        let opt = document.createElement('option');
-        opt.value = c;
-        opt.textContent = c;
-        select.appendChild(opt);
-    });
-    
-    if (sortedClasses.includes(currentVal)) {
-        select.value = currentVal;
-    }
+    const currentVal = select.value;
+    const classes = [...new Set(getResultsBest().map(b => b.className).filter(Boolean))].sort(EduScores.naturalCompare);
+    select.innerHTML = '<option value="">-- Tất cả các lớp --</option>' + classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    if (classes.includes(currentVal)) select.value = currentVal;
     renderResultsTable();
+}
+
+function getResultsFiltered() {
+    const selectedClass = document.getElementById('resultsClassSelect')?.value || '';
+    return getResultsBest()
+        .filter(b => !selectedClass || b.className === selectedClass)
+        .sort((a, b) => EduScores.naturalCompare(a.className, b.className) || a.name.localeCompare(b.name, 'vi') ||
+            EduScores.naturalCompare(a.subject, b.subject) || EduScores.naturalCompare(a.hinhThuc, b.hinhThuc));
+}
+
+function attemptsText(b) {
+    let s = String(b.attempts);
+    if (b.limit) s += ` / tối đa ${b.limit}`;
+    if (b.ignored) s += ` (${b.ignored} lần vượt giới hạn không tính)`;
+    return s;
 }
 
 function renderResultsTable() {
     const tbody = document.getElementById('tableResultsBody');
     if (!tbody) return;
-    
-    if (globalGoogleSheetData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color:var(--text-muted)">Chưa có dữ liệu, vui lòng cấu hình Google Sheets và chọn "Làm mới".</td></tr>';
+    if (sheetRows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 20px; color:var(--text-muted)">Chưa có dữ liệu, vui lòng cấu hình Google Sheets và chọn "Làm mới".</td></tr>';
         return;
     }
-    
-    const selectedClass = document.getElementById('resultsClassSelect').value;
-    
-    let filteredData = globalGoogleSheetData;
-    if (selectedClass) {
-        filteredData = globalGoogleSheetData.filter(row => row.className && row.className.trim() === selectedClass);
-    }
-    
-    // Sắp xếp theo họ tên (Bảng chữ cái)
-    filteredData.sort((a, b) => {
-        let nameA = (a.name || "").toLowerCase();
-        let nameB = (b.name || "").toLowerCase();
-        return nameA.localeCompare(nameB, 'vi');
-    });
-    
-    tbody.innerHTML = '';
-    if (filteredData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px; color:var(--text-muted)">Không có học sinh nào trong lớp này.</td></tr>';
+    const list = getResultsFiltered();
+    if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 20px; color:var(--text-muted)">Không có kết quả nào.</td></tr>';
         return;
     }
-    
-    filteredData.forEach((row, index) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td style="text-align:center;">${index + 1}</td>
-            <td style="font-weight:600;">${row.name || '-'}</td>
-            <td>${row.subject || '-'}</td>
-            <td>${row.examTime || '-'}</td>
-            <td>${row.className || '-'}</td>
-            <td>${row.date || '-'}</td>
-            <td style="color:var(--c-red); font-weight:bold; text-align:center;">${row.score !== undefined ? row.score : '-'}</td>
-        `;
-        tbody.appendChild(tr);
-    });
+    tbody.innerHTML = list.map((b, i) => {
+        const g = EduScores.gradeOf(b.score);
+        return `<tr>
+            <td style="text-align:center;">${i + 1}</td>
+            <td style="font-weight:600;">${esc(b.name)}</td>
+            <td>${esc(b.subject || '-')}</td>
+            <td>${esc(b.hinhThuc)}</td>
+            <td>${esc(b.className || '-')}</td>
+            <td>${esc(b.dateText || '-')}</td>
+            <td style="text-align:center;"><strong style="color:${g.color};">${b.score}</strong> <span style="font-size:11px; color:${g.color};">${esc(g.label)}</span></td>
+            <td style="text-align:center;" title="Điểm các lần: ${esc(b.allScores.join(', '))}">${esc(attemptsText(b))}</td>
+        </tr>`;
+    }).join('');
+}
+
+// Ô CSV an toàn (chặn công thức khi mở bằng Excel)
+function csvCell(v) {
+    let s = String(v == null ? '' : v);
+    if (/^[=+\-@]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
 }
 
 function downloadResultsCsv() {
-    if (globalGoogleSheetData.length === 0) return alert("Chưa có dữ liệu để tải. Vui lòng làm mới.");
-    
+    if (sheetRows.length === 0) return alert("Chưa có dữ liệu để tải. Vui lòng làm mới.");
+    const list = getResultsFiltered();
+    if (list.length === 0) return alert("Không có dữ liệu phù hợp.");
     const selectedClass = document.getElementById('resultsClassSelect').value;
-    let filteredData = globalGoogleSheetData;
-    if (selectedClass) {
-        filteredData = globalGoogleSheetData.filter(row => row.className && row.className.trim() === selectedClass);
-    }
-    
-    filteredData.sort((a, b) => {
-        let nameA = (a.name || "").toLowerCase();
-        let nameB = (b.name || "").toLowerCase();
-        return nameA.localeCompare(nameB, 'vi');
+    const year = document.getElementById('resultsYearSelect').value;
+    let csv = '﻿' + ['STT', 'HỌ TÊN', 'MÔN', 'HÌNH THỨC KT', 'LỚP', 'NỘP LÚC', 'ĐIỂM CAO NHẤT', 'XẾP LOẠI', 'SỐ LẦN LÀM', 'ĐIỂM CÁC LẦN'].join(',') + '\n';
+    list.forEach((b, i) => {
+        csv += [i + 1, b.name, b.subject, b.hinhThuc, b.className, b.dateText, b.score, EduScores.gradeOf(b.score).label, attemptsText(b), b.allScores.join(' ; ')].map(csvCell).join(',') + '\n';
     });
-    
-    if (filteredData.length === 0) return alert("Lớp này không có dữ liệu.");
-    
-    // Tạo BOM cho UTF-8 Excel
-    let csvContent = "\uFEFFSTT,HỌ TÊN,MÔN,HÌNH THỨC KT,LỚP,THỜI GIAN NỘP,ĐIỂM SỐ\n";
-    filteredData.forEach((row, index) => {
-        let name = String(row.name || "").replace(/"/g, '""');
-        let subject = String(row.subject || "").replace(/"/g, '""');
-        let examTime = String(row.examTime || "").replace(/"/g, '""');
-        let className = String(row.className || "").replace(/"/g, '""');
-        let date = String(row.date || "").replace(/"/g, '""');
-        let score = row.score !== undefined ? row.score : "";
-        
-        csvContent += `${index + 1},"${name}","${subject}","${examTime}","${className}","${date}","${score}"\n`;
-    });
-    
-    let filename = selectedClass ? `BangDiem_${selectedClass.replace(/\s+/g, '_')}.csv` : "BangDiem_TatCa.csv";
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const filename = `BangDiem_${year}_${selectedClass ? selectedClass.replace(/\s+/g, '_') : 'TatCa'}.csv`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ======= AI DỰ PHÒNG =======
+function getFallbackKeys() {
+    try { return Object.assign({ openrouter: '', groq: '' }, JSON.parse(lsGet('robotAiKeys', '{}'))); } catch (e) { return { openrouter: '', groq: '' }; }
+}
+function saveFallbackKeys() {
+    lsSet('robotAiKeys', JSON.stringify({
+        openrouter: document.getElementById('openRouterKeyInput').value.trim(),
+        groq: document.getElementById('groqKeyInput').value.trim()
+    }));
+    const s = document.getElementById('fallbackKeyStatus');
+    s.innerText = 'Đã lưu.';
+    setTimeout(() => { s.innerText = ''; }, 3000);
 }
 
 // ======= 4. CHATBOT AI =======
@@ -1161,10 +1267,11 @@ async function callAI(messagesArr, isChat = false) {
         "mistralai/mistral-7b-instruct:free"
     ];
 
-    for (let model of OPENROUTER_MODELS) {
+    const fallbackKeys = getFallbackKeys();
+    for (let model of (fallbackKeys.openrouter ? OPENROUTER_MODELS : [])) {
         try {
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST", headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+                method: "POST", headers: { "Authorization": `Bearer ${fallbackKeys.openrouter}`, "Content-Type": "application/json" },
                 body: JSON.stringify({ "model": model, "messages": messages, "max_tokens": 8000 })
             });
             if (response.ok) return await response.json();
@@ -1173,15 +1280,18 @@ async function callAI(messagesArr, isChat = false) {
     }
     
     // ===== PRIORITY 3: Groq (miễn phí, fallback cuối) =====
-    try {
+    if (fallbackKeys.groq) try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST", headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+            method: "POST", headers: { "Authorization": `Bearer ${fallbackKeys.groq}`, "Content-Type": "application/json" },
             body: JSON.stringify({ "model": "llama-3.1-8b-instant", "messages": messages, "max_tokens": 8000 })
         });
         if (response.ok) return await response.json();
         else errorLogs.push("Groq: " + await response.text());
     } catch(e) { errorLogs.push("Groq Network Error: " + e.message); }
     
+    if (errorLogs.length === 0) {
+        throw new Error("Chưa có AI nào được cấu hình: hãy kết nối DeepSeek ở trang chủ, hoặc nhập key OpenRouter/Groq ở trang \"Google Sheets\".");
+    }
     throw new Error("Tất cả API thất bại.\n" + errorLogs.join("\n"));
 }
 
@@ -1455,17 +1565,17 @@ function openReviewModal() {
                         let isCorrect = (optIdx === q.correctAnswerIndex);
                         let prefix = (!q.type || q.type === 'mcq') ? String.fromCharCode(65 + optIdx) + '.' : '-';
                         optionsHtml += `<div style="margin-bottom: 5px; ${isCorrect ? 'color: var(--primary); font-weight: bold;' : ''}">
-                            ${prefix} ${opt} ${isCorrect ? ' <i class="fa-solid fa-check"></i>' : ''}
+                            ${prefix} ${esc(opt)} ${isCorrect ? ' <i class="fa-solid fa-check"></i>' : ''}
                         </div>`;
                     });
                 }
             } else if (q.type === 'fill') {
                 if (q.options && Array.isArray(q.options)) {
-                    optionsHtml += `<div style="margin-bottom: 8px; font-style: italic; color: #666;">Từ gợi ý: ${q.options.join(" / ")}</div>`;
+                    optionsHtml += `<div style="margin-bottom: 8px; font-style: italic; color: #666;">Từ gợi ý: ${esc(q.options.join(" / "))}</div>`;
                 }
-                optionsHtml += `<div style="color: var(--primary); font-weight: bold;">Đáp án đúng: ${q.correctAnswerText} <i class="fa-solid fa-check"></i></div>`;
+                optionsHtml += `<div style="color: var(--primary); font-weight: bold;">Đáp án đúng: ${esc(q.correctAnswerText)} <i class="fa-solid fa-check"></i></div>`;
             } else if (q.type === 'calc') {
-                optionsHtml += `<div style="color: var(--primary); font-weight: bold;">Đáp án đúng: ${q.correctAnswerText} <i class="fa-solid fa-check"></i></div>`;
+                optionsHtml += `<div style="color: var(--primary); font-weight: bold;">Đáp án đúng: ${esc(q.correctAnswerText)} <i class="fa-solid fa-check"></i></div>`;
             }
             
             // Badge màu sắc cho mức độ khó + dropdown chỉnh sửa nhanh
@@ -1481,16 +1591,17 @@ function openReviewModal() {
             body.innerHTML += `
             <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid var(--border-color);">
                 <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Câu ${idx + 1} ${diffBadgeHtml}</div>
-                <div style="margin-bottom: 10px;">${q.question}</div>
+                <div style="margin-bottom: 10px; white-space: pre-wrap;">${esc(q.question)}</div>
                 <div style="padding-left: 10px;">${optionsHtml}</div>
                 <div style="margin-top: 10px; font-size: 13px; color: #666; background: #fdfdfd; padding: 10px; border-left: 3px solid var(--primary);">
-                    <strong>Giải thích:</strong> ${q.explanation || 'Không có giải thích'}
+                    <strong>Giải thích:</strong> ${esc(q.explanation || 'Không có giải thích')}
                 </div>
             </div>
             `;
         });
     }
     
+    loadExportOptions();
     document.getElementById("reviewModal").classList.add("active");
 }
 
@@ -1582,11 +1693,8 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("profileUserName").innerText = savedName;
     }
     
-    let savedUrl = localStorage.getItem("robotWebhookUrl");
-    if (savedUrl) {
-        let urlInput = document.getElementById("webhookUrl");
-        if (urlInput) urlInput.value = savedUrl;
-    }
+    initSheetSettings();
+    initGithubSettings();
     
     updateTotalQuestions();
     renderClassesOptions();
@@ -1693,28 +1801,120 @@ function downloadCSVTemplate() {
 }
 
 // Xuất file HTML
+// ======= XUẤT ĐỀ =======
+function getExportOptions() {
+    try { return Object.assign({ shuffle: false, studentList: true }, JSON.parse(lsGet('robotExportOptions', '{}'))); } catch (e) { return { shuffle: false, studentList: true }; }
+}
+function saveExportOptions() {
+    lsSet('robotExportOptions', JSON.stringify({
+        shuffle: document.getElementById('optShuffle').checked,
+        studentList: document.getElementById('optStudentList').checked
+    }));
+    updateExportOptionNote();
+}
+function loadExportOptions() {
+    const o = getExportOptions();
+    const sh = document.getElementById('optShuffle'), sl = document.getElementById('optStudentList');
+    if (sh) sh.checked = o.shuffle;
+    if (sl) sl.checked = o.studentList;
+    updateExportOptionNote();
+}
+function updateExportOptionNote() {
+    const note = document.getElementById('exportOptionNote');
+    if (!note) return;
+    const classes = getExamClasses();
+    const lists = getStudentListsFor(classes);
+    const withList = Object.keys(lists).length;
+    const r = document.getElementById('examRound')?.value || 1;
+    const lim = +(document.getElementById('examLimit')?.value || 0);
+    let text = `Lần ${r}${lim ? ` · tối đa ${lim} lần` : ''}`;
+    if (document.getElementById('optStudentList')?.checked && classes.length) {
+        text += ` · ${withList}/${classes.length} lớp có danh sách học sinh`;
+    }
+    note.innerText = text;
+}
+
+// Các lớp áp dụng (ô "Lớp áp dụng": 6A1, 6A2 hoặc 6A1; 6A2)
+function getExamClasses() {
+    const raw = document.getElementById('grade')?.value || '';
+    return raw.split(/[,;\n]/).map(c => c.trim().replace(/^lớp\s+/i, '')).filter(Boolean);
+}
+
+// Thông tin đề đang xuất
+function getExamMeta() {
+    return {
+        subject: (document.getElementById('subject').value || 'Chung').trim(),
+        minutes: parseInt(document.getElementById('examTime')?.value, 10) || 45,
+        round: parseInt(document.getElementById('examRound')?.value, 10) || 1,
+        limit: parseInt(document.getElementById('examLimit')?.value, 10) || 0,
+        classes: getExamClasses()
+    };
+}
+
+// Tạo nội dung file đề (dùng cho tải file và đăng lên GitHub)
+function buildExamHtml(meta) {
+    function b64DecodeUnicode(str) { return decodeURIComponent(atob(str).split('').map(function(c) { return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join('')); }
+    if (typeof TEMPLATE_B64 === "undefined") throw new Error("Không tìm thấy template_data.js.");
+    const opts = getExportOptions();
+    let t = b64DecodeUnicode(TEMPLATE_B64);
+    // JSON.stringify: dấu " hoặc xuống dòng không làm hỏng JS; escape "<" để "</script>" không cắt ngang thẻ script;
+    // dùng hàm thay thế để "$" trong nội dung không bị hiểu nhầm
+    const js = v => JSON.stringify(v).split('<').join('\\x3c').split(String.fromCharCode(0x2028)).join('\\u2028').split(String.fromCharCode(0x2029)).join('\\u2029');
+    const put = (placeholder, value) => {
+        if (!t.includes(placeholder)) throw new Error('Mẫu đề thi thiếu: ' + placeholder);
+        t = t.replace(placeholder, () => value);
+    };
+    put('const EXAM_DATA = []; // Template placeholder', `const EXAM_DATA = ${js(currentExamData)};`);
+    put('const WEBHOOK_URL = ""; // Template placeholder', `const WEBHOOK_URL = ${js(lsGet('robotWebhookUrl').trim())};`);
+    put('const EXAM_TIME = 45; // Template placeholder', `const EXAM_TIME = ${meta.minutes};`);
+    put('const SUBJECT = "Chung"; // Template placeholder', `const SUBJECT = ${js(meta.subject)};`);
+    put('const ALLOWED_CLASSES = ""; // Template placeholder', `const ALLOWED_CLASSES = ${js(meta.classes.join(','))};`);
+    put('const EXAM_ROUND = 1; // Template placeholder', `const EXAM_ROUND = ${meta.round};`);
+    put('const EXAM_LIMIT = 0; // Template placeholder', `const EXAM_LIMIT = ${meta.limit};`);
+    put('const SHUFFLE = false; // Template placeholder', `const SHUFFLE = ${opts.shuffle ? 'true' : 'false'};`);
+    put('const STUDENT_LISTS = {}; // Template placeholder', `const STUDENT_LISTS = ${js(opts.studentList ? getStudentListsFor(meta.classes) : {})};`);
+    return t;
+}
+
+// Cảnh báo khi "môn + thời gian + lần kiểm tra" đã có bài nộp trong năm học (dễ gộp nhầm 2 bài khác nhau)
+async function confirmExamRoundNotUsed(meta) {
+    if (!lsGet('robotWebhookUrl').trim()) return true;
+    if (!sheetRows.length) {
+        try {
+            const rows = await Promise.race([fetchSheetJson({ year: 'all' }), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000))]);
+            if (Array.isArray(rows)) sheetRows = rows;
+        } catch (e) {
+            console.warn('[Xuất đề] Không kiểm tra được lần kiểm tra trùng:', e.message);
+            return true; // Không chặn giáo viên khi Google chậm
+        }
+    }
+    const year = EduScores.currentSchoolYear();
+    const same = r => EduScores.normKey(r.subject) === EduScores.normKey(meta.subject) && r.hinhThucBase === `${meta.minutes} Phút`;
+    const all = EduScores.process(sheetRows, { year }).all.filter(r => !r.dup && same(r));
+    const used = all.filter(r => r.round === meta.round);
+    if (!used.length) return true;
+    const usedRounds = new Set(all.map(r => r.round));
+    let free = 1;
+    while (usedRounds.has(free)) free++;
+    const last = used.reduce((a, b) => (b.time > a.time ? b : a));
+    return confirm(`Năm học ${year} đã có ${used.length} bài nộp cho "${meta.subject} – ${meta.minutes} phút – Lần ${meta.round}" (lần nộp gần nhất: ${last.dateText}).\n\n` +
+        `• Nếu đây là CÙNG bài kiểm tra (xuất lại, sửa đề...): bấm OK.\n` +
+        `• Nếu đây là bài kiểm tra KHÁC: bấm Hủy rồi chọn "Lần kiểm tra" khác` + (free <= 6 ? ` (gợi ý: Lần ${free})` : '') + `, nếu không điểm 2 bài sẽ bị gộp và lấy điểm cao nhất.`);
+}
+
+function examFileBaseName(meta) {
+    const slug = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    return `${slug(meta.subject)}_${meta.minutes}phut_Lan${meta.round}`;
+}
+
 async function exportHTML() {
     if (currentExamData.length === 0) return alert("Chưa có dữ liệu đề thi!");
-    const webhookUrl = document.getElementById('webhookUrl').value.trim();
-    const examTime = document.getElementById('examTime') ? parseInt(document.getElementById('examTime').value) : 45;
+    const meta = getExamMeta();
+    if (!(await confirmExamRoundNotUsed(meta))) return;
+    let templateContent;
+    try { templateContent = buildExamHtml(meta); } catch (e) { return alert(e.message); }
 
-    function b64DecodeUnicode(str) { return decodeURIComponent(atob(str).split('').map(function(c) { return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join('')); }
-    if (typeof TEMPLATE_B64 === "undefined") return alert("Không tìm thấy template_data.js.");
-
-    let templateContent = b64DecodeUnicode(TEMPLATE_B64);
-    // Dùng JSON.stringify để dấu " hoặc xuống dòng trong dữ liệu không làm hỏng JS của đề thi;
-    // escape "<" để nội dung như "</script>" không cắt ngang thẻ script; dùng hàm thay thế để "$" không bị hiểu nhầm
-    const jsStr = v => JSON.stringify(String(v)).replace(/</g, '\\u003c');
-    const examJson = JSON.stringify(currentExamData).split('<').join('\\x3c').split(String.fromCharCode(0x2028)).join('\\u2028').split(String.fromCharCode(0x2029)).join('\\u2029');
-    templateContent = templateContent.replace('const EXAM_DATA = []; // Template placeholder', () => `const EXAM_DATA = ${examJson};`);
-    templateContent = templateContent.replace('const WEBHOOK_URL = ""; // Template placeholder', () => `const WEBHOOK_URL = ${jsStr(webhookUrl)};`);
-    templateContent = templateContent.replace('const EXAM_TIME = 45; // Template placeholder', () => `const EXAM_TIME = ${examTime || 45};`);
-    templateContent = templateContent.replace('const SUBJECT = "Chung"; // Template placeholder', () => `const SUBJECT = ${jsStr(document.getElementById('subject').value || "Chung")};`);
-    let rawGrade = document.getElementById('grade').value || "";
-    let normalizedGrade = rawGrade.split(/[,;\n]/).map(c => c.trim()).filter(c => c).join(',');
-    templateContent = templateContent.replace('const ALLOWED_CLASSES = ""; // Template placeholder', () => `const ALLOWED_CLASSES = ${jsStr(normalizedGrade)};`);
-
-    const suggestedName = `${document.getElementById('subject').value}_TracNghiem.html`.replace(/\s+/g, '_');
+    const suggestedName = examFileBaseName(meta) + '.html';
     let finalName = suggestedName;
     if (window.showSaveFilePicker) {
         try {
@@ -1735,6 +1935,7 @@ async function exportHTML() {
     a.href = URL.createObjectURL(new Blob([templateContent], { type: 'text/html;charset=utf-8' }));
     a.download = finalName;
     a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 window.onload = () => {
@@ -1743,6 +1944,253 @@ window.onload = () => {
     // Khởi tạo hiển thị phân bổ mức độ khó
     if (typeof updateDifficultyQuotaDisplay === 'function') updateDifficultyQuotaDisplay();
     // Tự tải dữ liệu từ Google Sheets nếu đã cấu hình URL
-    const webhookInput = document.getElementById('webhookUrl');
-    if (webhookInput && webhookInput.value.trim()) fetchChartData();
+    if (lsGet('robotWebhookUrl').trim()) fetchChartData();
 };
+
+// ======= ĐĂNG ĐỀ LÊN GITHUB PAGES =======
+// Token chỉ lưu trên máy (localStorage). Không dùng trên bản web *.github.io vì các trang
+// GitHub Pages cùng tài khoản dùng chung bộ nhớ trình duyệt.
+const isWebVersion = () => /\.github\.io$/i.test(location.hostname);
+
+function getGithubConfig() {
+    let c = {};
+    try { c = JSON.parse(lsGet('robotGithub', '{}')); } catch (e) {}
+    return Object.assign({ owner: '', repo: '', branch: 'main', folder: 'de', token: '' }, c);
+}
+
+function initGithubSettings() {
+    const c = getGithubConfig();
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('ghOwner', c.owner); set('ghRepo', c.repo); set('ghBranch', c.branch); set('ghFolder', c.folder); set('ghToken', c.token);
+    const warn = document.getElementById('ghWebWarning');
+    if (warn) warn.style.display = isWebVersion() ? 'block' : 'none';
+    renderPublishedList();
+}
+
+function setGhStatus(text, color) {
+    const el = document.getElementById('ghStatus');
+    if (el) { el.innerText = text; el.style.color = color || 'var(--c-green)'; }
+}
+
+async function githubApi(c, method, apiPath, body) {
+    const res = await fetch(`https://api.github.com${apiPath}`, {
+        method,
+        headers: {
+            'Authorization': `Bearer ${c.token}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            ...(body ? { 'Content-Type': 'application/json' } : {})
+        },
+        body: body ? JSON.stringify(body) : undefined
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) {
+        const msg = data && data.message ? data.message : 'HTTP ' + res.status;
+        const err = new Error(res.status === 401 ? 'Token không hợp lệ hoặc đã hết hạn.'
+            : res.status === 403 ? 'Token không có quyền ghi (cần Contents: Read and write cho kho này). ' + msg
+            : res.status === 404 ? 'Không tìm thấy kho (sai tên tài khoản/kho, hoặc token chưa được cấp quyền cho kho này).'
+            : msg);
+        err.status = res.status;
+        throw err;
+    }
+    return data;
+}
+
+const ghRepoPath = c => `/repos/${encodeURIComponent(c.owner)}/${encodeURIComponent(c.repo)}`;
+const ghFilePath = (c, name) => [c.folder.replace(/^\/+|\/+$/g, ''), name].filter(Boolean).join('/');
+function ghPagesUrl(c, path) {
+    const host = `${c.owner.toLowerCase()}.github.io`;
+    const encoded = path.split('/').map(encodeURIComponent).join('/');
+    return c.repo.toLowerCase() === host ? `https://${host}/${encoded}` : `https://${host}/${encodeURIComponent(c.repo)}/${encoded}`;
+}
+
+async function saveGithubConfig() {
+    if (isWebVersion()) return setGhStatus('Không lưu token trên bản web. Hãy dùng phần mềm trên máy tính.', 'red');
+    const c = {
+        owner: document.getElementById('ghOwner').value.trim(),
+        repo: document.getElementById('ghRepo').value.trim(),
+        branch: document.getElementById('ghBranch').value.trim() || 'main',
+        folder: document.getElementById('ghFolder').value.trim().replace(/^\/+|\/+$/g, ''),
+        token: document.getElementById('ghToken').value.trim()
+    };
+    if (!c.owner || !c.repo || !c.token) return setGhStatus('Vui lòng nhập đủ tài khoản, tên kho và token.', 'red');
+    lsSet('robotGithub', JSON.stringify(c));
+    setGhStatus('Đang kiểm tra...', 'var(--text-muted)');
+    try {
+        const repo = await githubApi(c, 'GET', ghRepoPath(c));
+        if (repo.permissions && !repo.permissions.push) throw new Error('Token chỉ có quyền đọc. Cần quyền Contents: Read and write.');
+        const notes = [];
+        if (repo.private) notes.push('⚠️ Kho đang để Riêng tư (Private): GitHub Pages miễn phí chỉ chạy với kho Công khai.');
+        if (repo.full_name.toLowerCase() === 'truongthaihoavt2010-arch/tool_giao_duc') notes.push('⚠️ Đây là kho mã nguồn phần mềm — nên dùng kho riêng cho đề thi.');
+        setGhStatus(`✅ Kết nối được kho ${repo.full_name}.` + (notes.length ? ' ' + notes.join(' ') : ' Nhớ bật GitHub Pages (Settings › Pages).'), notes.length ? 'orange' : 'var(--c-green)');
+    } catch (e) {
+        setGhStatus('❌ ' + e.message, 'red');
+    }
+}
+
+function clearGithubToken() {
+    const c = getGithubConfig();
+    c.token = '';
+    lsSet('robotGithub', JSON.stringify(c));
+    document.getElementById('ghToken').value = '';
+    setGhStatus('Đã xóa token khỏi máy này.', 'var(--text-muted)');
+}
+
+function utf8ToBase64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+}
+
+function randomSuffix(n) {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    const a = new Uint8Array(n);
+    crypto.getRandomValues(a);
+    return Array.from(a, b => chars[b % chars.length]).join('');
+}
+
+function getPublished() { try { return JSON.parse(lsGet('robotPublishedExams', '[]')) || []; } catch (e) { return []; } }
+function setPublished(list) { lsSet('robotPublishedExams', JSON.stringify(list)); }
+
+async function publishExam() {
+    if (currentExamData.length === 0) return alert('Chưa có dữ liệu đề thi!');
+    if (isWebVersion()) return alert('Đăng đề chỉ dùng được trên phần mềm chạy ở máy tính (mở bằng MO_TOOL_GIAO_DUC.bat).');
+    const c = getGithubConfig();
+    if (!c.owner || !c.repo || !c.token) {
+        alert('Chưa cấu hình GitHub. Vào trang "Google Sheets" › mục "Đăng đề lên GitHub" để cài đặt (chỉ làm một lần).');
+        closeReviewModal();
+        return switchPage('page-settings', document.querySelectorAll('.menu-item')[6]);
+    }
+    if (!lsGet('robotWebhookUrl').trim() && !confirm('Chưa cấu hình Google Sheets: học sinh làm bài sẽ KHÔNG lưu được điểm. Vẫn đăng đề?')) return;
+    const meta = getExamMeta();
+    if (!(await confirmExamRoundNotUsed(meta))) return;
+
+    let html;
+    try { html = buildExamHtml(meta); } catch (e) { return alert(e.message); }
+    const name = `${examFileBaseName(meta)}_${randomSuffix(5)}.html`; // đoạn ngẫu nhiên: khó đoán link
+    const path = ghFilePath(c, name);
+    const url = ghPagesUrl(c, path);
+
+    openPublishModal('⏳ Đang tải đề lên GitHub...', '', 'var(--text-muted)');
+    try {
+        const res = await githubApi(c, 'PUT', `${ghRepoPath(c)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`, {
+            message: `Đăng đề ${meta.subject} - ${meta.minutes} phút - Lần ${meta.round}`,
+            content: utf8ToBase64(html),
+            branch: c.branch
+        });
+        const list = getPublished();
+        list.unshift({ path, url, sha: res.content && res.content.sha, repo: `${c.owner}/${c.repo}`, branch: c.branch,
+            title: `${meta.subject} · ${meta.minutes} phút · Lần ${meta.round}`, classes: meta.classes.join(', '), time: Date.now() });
+        setPublished(list);
+        renderPublishedList();
+        await waitForPages(url);
+    } catch (e) {
+        openPublishModal('❌ ' + e.message, '', 'red');
+    }
+}
+
+// Chờ GitHub Pages cập nhật (thường 30 giây – 2 phút)
+async function waitForPages(url) {
+    openPublishModal('✅ Đã tải lên. ⏳ Đang chờ GitHub Pages cập nhật (thường 30 giây – 2 phút)...', url, 'var(--text-muted)');
+    const started = Date.now();
+    while (Date.now() - started < 4 * 60 * 1000) {
+        if (!document.getElementById('publishModal').classList.contains('active')) return; // đã đóng
+        try {
+            const r = await fetch(url + '?t=' + Date.now(), { cache: 'no-store' });
+            if (r.ok) {
+                openPublishModal('🎉 Link đã sẵn sàng! Gửi link hoặc mã QR cho học sinh.', url, 'var(--c-green)');
+                return;
+            }
+        } catch (e) {}
+        await new Promise(r => setTimeout(r, 6000));
+        const sec = Math.round((Date.now() - started) / 1000);
+        openPublishModal(`✅ Đã tải lên. ⏳ Đang chờ GitHub Pages cập nhật... (${sec} giây)`, url, 'var(--text-muted)');
+    }
+    openPublishModal('⚠️ Đã tải lên nhưng link chưa mở được sau 4 phút. Kiểm tra kho đã bật GitHub Pages (Settings › Pages) chưa, rồi thử mở link sau ít phút.', url, 'orange');
+}
+
+let qrLibPromise = null;
+function loadQrLib() {
+    if (window.QRCode) return Promise.resolve();
+    if (!qrLibPromise) qrLibPromise = new Promise((resolve, reject) => {
+        const sc = document.createElement('script');
+        sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        sc.onload = resolve;
+        sc.onerror = () => { qrLibPromise = null; reject(new Error('Không tải được thư viện QR')); };
+        document.head.appendChild(sc);
+    });
+    return qrLibPromise;
+}
+
+function openPublishModal(status, url, color) {
+    const st = document.getElementById('publishStatus');
+    st.innerText = status;
+    st.style.color = color || '';
+    const link = document.getElementById('publishLink');
+    const qr = document.getElementById('publishQr');
+    const open = document.getElementById('publishOpen');
+    if (url && link.value !== url) {
+        link.value = url;
+        open.href = url;
+        qr.innerHTML = '';
+        loadQrLib().then(() => new QRCode(qr, { text: url, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M })).catch(() => { qr.innerText = ''; });
+    }
+    link.parentElement.style.display = url ? 'flex' : 'none';
+    open.parentElement.style.display = url ? 'block' : 'none';
+    if (!url) qr.innerHTML = '';
+    document.getElementById('publishModal').classList.add('active');
+}
+function closePublishModal() {
+    document.getElementById('publishModal').classList.remove('active');
+    document.getElementById('publishLink').value = '';
+}
+async function copyPublishLink() {
+    const link = document.getElementById('publishLink');
+    try { await navigator.clipboard.writeText(link.value); } catch (e) { link.select(); document.execCommand('copy'); }
+    const st = document.getElementById('publishStatus');
+    st.innerText = '📋 Đã sao chép link!';
+    st.style.color = 'var(--c-green)';
+}
+
+function renderPublishedList() {
+    const tbody = document.getElementById('publishedBody');
+    if (!tbody) return;
+    const list = getPublished();
+    tbody.innerHTML = list.length ? list.map((p, i) => `<tr>
+        <td><strong>${esc(p.title)}</strong><div style="font-size:12px; color:var(--text-muted);">${esc(p.classes || '')}</div></td>
+        <td>${esc(new Date(p.time).toLocaleString('vi-VN'))}</td>
+        <td><a href="${esc(p.url)}" target="_blank" rel="noopener" style="word-break: break-all;">${esc(p.path)}</a></td>
+        <td style="white-space:nowrap;">
+            <button class="btn-view" onclick="showPublished(${i})"><i class="fa-solid fa-qrcode"></i> Link</button>
+            <button class="btn-view" style="color:var(--c-red); margin-left:5px;" onclick="unpublishExam(${i})"><i class="fa-solid fa-trash"></i> Gỡ đề</button>
+        </td></tr>`).join('')
+        : '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 16px;">Chưa có đề nào được đăng.</td></tr>';
+}
+
+function showPublished(i) {
+    const p = getPublished()[i];
+    if (p) openPublishModal('Link bài kiểm tra:', p.url, 'var(--c-green)');
+}
+
+async function unpublishExam(i) {
+    const list = getPublished();
+    const p = list[i];
+    if (!p) return;
+    if (!confirm(`Gỡ đề "${p.title}" khỏi GitHub?\nHọc sinh sẽ không mở được link này nữa. (Điểm đã nộp trong Google Sheets vẫn giữ nguyên.)`)) return;
+    const c = getGithubConfig();
+    const [owner, repo] = p.repo.split('/');
+    const cc = Object.assign({}, c, { owner, repo });
+    try {
+        const apiPath = `${ghRepoPath(cc)}/contents/${p.path.split('/').map(encodeURIComponent).join('/')}`;
+        let sha = p.sha;
+        try { sha = (await githubApi(cc, 'GET', `${apiPath}?ref=${encodeURIComponent(p.branch || 'main')}`)).sha; } catch (e) { if (e.status !== 404) throw e; sha = null; }
+        if (sha) await githubApi(cc, 'DELETE', apiPath, { message: `Gỡ đề ${p.title}`, sha, branch: p.branch || 'main' });
+        list.splice(i, 1);
+        setPublished(list);
+        renderPublishedList();
+    } catch (e) {
+        alert('Không gỡ được đề: ' + e.message);
+    }
+}

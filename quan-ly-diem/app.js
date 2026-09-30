@@ -459,7 +459,9 @@
     function backup() {
         if (!state.rows.length) return alert('Chưa có dữ liệu để sao lưu.');
         const rows = state.rows.map((r, i) => [i + 1, r.name, r.subject, r.examTime, r.className, r.date, r.score, r.year || S.schoolYearOf(S.parseTime(r.date))]);
-        csvDownload(`SaoLuu_DuLieuDiem_TatCaNamHoc_${new Date().toISOString().slice(0, 10)}.csv`,
+        const d = new Date(); // Ngày theo giờ máy (không dùng toISOString: giờ UTC lệch ngày lúc sáng sớm)
+        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        csvDownload(`SaoLuu_DuLieuDiem_TatCaNamHoc_${today}.csv`,
             ['STT', 'Họ tên', 'Môn', 'Hình thức KT', 'Lớp', 'Thời gian nộp', 'Điểm', 'Năm học'], rows);
     }
 

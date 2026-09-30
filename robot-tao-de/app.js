@@ -1453,7 +1453,7 @@ async function startGeneration(isAutoMode = false) {
 function parseLocalExamText(text) {
     // Tiền xử lý: Tách các phần bị dính chữ (thường do copy từ PDF, ex: "văn bản?A. PaintB. Excel")
     // Bước 1: Tách Câu, Đáp án đúng, Gợi ý (không phân biệt hoa thường)
-    text = text.replace(/([^\n])\s*(Câu\s*\d+[\s:.]|Đáp án đúng\s*:|Gợi ý\s*:)/gi, (match, p1, p2) => {
+    text = text.replace(/([^\n"“])\s*(Câu\s*\d+[\s:.]|Đáp án đúng\s*:|Gợi ý\s*:)/gi, (match, p1, p2) => {
         return p1 + '\n' + p2;
     });
     // Bước 2: Tách các phương án A, B, C, D (phân biệt HOA thường để tránh dính chữ d. trong Word.)
@@ -1469,6 +1469,9 @@ function parseLocalExamText(text) {
 
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i];
+
+        // Dòng tiêu đề phần của file mẫu ("Phần 3: Điền khuyết ...") không thuộc câu nào
+        if (/^phần\s*\d+\s*[:.]/i.test(line)) continue;
 
         if (/^Câu\s*\d+[\s:.]/i.test(line)) {
             if (currentQ) questions.push(currentQ);

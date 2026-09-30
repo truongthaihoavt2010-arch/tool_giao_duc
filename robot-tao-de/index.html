@@ -447,6 +447,7 @@
                         <li>Mở Google Sheets, chọn <strong>Tiện ích mở rộng › Apps Script</strong>. Xóa mã cũ, dán mã bên dưới, bấm <strong>Lưu</strong>.</li>
                         <li><strong>Lần đầu:</strong> <em>Triển khai › Tùy chọn triển khai mới › Ứng dụng web</em>; Thực thi: <em>Tôi</em>; Quyền truy cập: <em>Bất kỳ ai</em>.</li>
                         <li><strong style="color:#d63031;">Đã cài trước đây:</strong> <em>Triển khai › Quản lý các lần triển khai › Sửa (bút chì) › Phiên bản: Phiên bản mới › Triển khai</em> — giữ nguyên URL.</li>
+                        <li><strong>Lưu ý:</strong> nút <em>Lưu</em> và <em>Chạy</em> trong trình soạn thảo <strong>chưa làm app thay đổi</strong> — chỉ <em>Triển khai phiên bản mới</em> mới có hiệu lực. Muốn kiểm tra, chọn hàm <strong>kiemTraCaiDat</strong> rồi bấm Chạy (không ghi, không xóa gì).</li>
                     </ol>
                     <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;"><i class="fa-solid fa-key"></i> Mã đã có sẵn <strong>mã đọc dữ liệu</strong> của bạn (ô "Mã đọc dữ liệu" ở Bước 2): chỉ ai có mã mới xem được điểm học sinh. Mỗi năm học, điểm được ghi vào một tab riêng (ví dụ "2026-2027").</p>
                     <textarea id="gasCode" readonly spellcheck="false" style="width: 100%; height: 260px; font-family: monospace; font-size: 12px; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: #f8f9fa;">/**
@@ -466,6 +467,19 @@
  * DỮ LIỆU: mỗi năm học một tab ("2026-2027"...), tự tạo khi có bài nộp đầu tiên của năm học.
  * Tab cũ (ví dụ "Trang tính1") được giữ nguyên và vẫn được đọc theo ngày nộp.
  */
+
+/**
+ * KIỂM TRA CÀI ĐẶT — hàm an toàn để bấm "Chạy" trong trình soạn thảo (không ghi, không xóa gì).
+ * Xem kết quả ở "Nhật ký thực thi": số bài nộp trong từng tab, phiên bản mã.
+ * NHỚ: dán mã xong phải Triển khai &gt; Quản lý các lần triển khai &gt; Sửa &gt; Phiên bản mới thì mới có hiệu lực.
+ */
+function kiemTraCaiDat() {
+  Logger.log("Apps Script phiên bản " + SCRIPT_VERSION + (READ_KEY ? " · đã đặt mã đọc dữ liệu" : " · CHƯA đặt mã đọc dữ liệu"));
+  dataSheets_().forEach(function (s) {
+    Logger.log("Tab \"" + s.getName() + "\": " + Math.max(0, s.getLastRow() - 1) + " bài nộp");
+  });
+  Logger.log("Năm học có dữ liệu: " + listYears_().join(", "));
+}
 
 var READ_KEY = ""; // MÃ ĐỌC DỮ LIỆU — chỉ ai có mã này mới xem được điểm (để trống = ai cũng xem được)
 var SCRIPT_VERSION = 3;
@@ -521,7 +535,7 @@ function getYearSheet_(year) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(year);
   if (!sheet) {
-    sheet = ss.insertSheet(year, 0);
+    sheet = ss.insertSheet(year, ss.getSheets().length);
     sheet.appendRow(HEADERS);
     sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight("bold").setBackground("#d1e7dd");
     sheet.setFrozenRows(1);
@@ -547,6 +561,9 @@ function doPost(e) {
   }
   try {
     var data = (e &amp;&amp; e.parameter) || {};
+    if (!String(data.name || "").trim()) {
+      return jsonOut_({ status: "error", message: "Thiếu họ tên học sinh — không ghi. (doPost chỉ dùng khi học sinh nộp bài, không bấm Chạy trực tiếp.)" });
+    }
     var now = new Date();
     var sheet = getYearSheet_(schoolYearOf_(now));
     var last = sheet.getLastRow();

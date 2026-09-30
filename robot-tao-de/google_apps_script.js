@@ -16,6 +16,19 @@
  * Tab cũ (ví dụ "Trang tính1") được giữ nguyên và vẫn được đọc theo ngày nộp.
  */
 
+/**
+ * KIỂM TRA CÀI ĐẶT — hàm an toàn để bấm "Chạy" trong trình soạn thảo (không ghi, không xóa gì).
+ * Xem kết quả ở "Nhật ký thực thi": số bài nộp trong từng tab, phiên bản mã.
+ * NHỚ: dán mã xong phải Triển khai > Quản lý các lần triển khai > Sửa > Phiên bản mới thì mới có hiệu lực.
+ */
+function kiemTraCaiDat() {
+  Logger.log("Apps Script phiên bản " + SCRIPT_VERSION + (READ_KEY ? " · đã đặt mã đọc dữ liệu" : " · CHƯA đặt mã đọc dữ liệu"));
+  dataSheets_().forEach(function (s) {
+    Logger.log("Tab \"" + s.getName() + "\": " + Math.max(0, s.getLastRow() - 1) + " bài nộp");
+  });
+  Logger.log("Năm học có dữ liệu: " + listYears_().join(", "));
+}
+
 var READ_KEY = ""; // MÃ ĐỌC DỮ LIỆU — chỉ ai có mã này mới xem được điểm (để trống = ai cũng xem được)
 var SCRIPT_VERSION = 3;
 
@@ -70,7 +83,7 @@ function getYearSheet_(year) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(year);
   if (!sheet) {
-    sheet = ss.insertSheet(year, 0);
+    sheet = ss.insertSheet(year, ss.getSheets().length);
     sheet.appendRow(HEADERS);
     sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight("bold").setBackground("#d1e7dd");
     sheet.setFrozenRows(1);
@@ -96,6 +109,9 @@ function doPost(e) {
   }
   try {
     var data = (e && e.parameter) || {};
+    if (!String(data.name || "").trim()) {
+      return jsonOut_({ status: "error", message: "Thiếu họ tên học sinh — không ghi. (doPost chỉ dùng khi học sinh nộp bài, không bấm Chạy trực tiếp.)" });
+    }
     var now = new Date();
     var sheet = getYearSheet_(schoolYearOf_(now));
     var last = sheet.getLastRow();

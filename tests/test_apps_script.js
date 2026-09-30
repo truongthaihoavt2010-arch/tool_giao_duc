@@ -67,7 +67,7 @@ function load(readKey, sheets, nowMs) {
         Logger: { log: m => logs.push(m) },
     };
     const code = SRC.replace('var READ_KEY = "";', `var READ_KEY = ${JSON.stringify(readKey)};`);
-    const api = new Function(...Object.keys(ctx), code + '; return {doPost, doGet, xoaBaiNopTrung, saoLuu};')(...Object.values(ctx));
+    const api = new Function(...Object.keys(ctx), code + '; return {doPost, doGet, xoaBaiNopTrung, saoLuu, kiemTraCaiDat};')(...Object.values(ctx));
     return { api, ss, logs };
 }
 
@@ -92,7 +92,7 @@ check('Thông tin script', get({ key: 'ma-bi-mat', action: 'info' }), { status: 
 
 // ---------- Ghi điểm vào tab năm học ----------
 check('Đề cũ (examTime=15)', post({ name: 'An', className: '6A1', subject: 'Tin học', examTime: '15', score: '7.50' }).status, 'success');
-check('Tự tạo tab 2026-2027 ở đầu', ss.getSheets().map(s => s.name), ['2026-2027', 'Trang tính1', 'Ghi chú']);
+check('Tự tạo tab 2026-2027 ở CUỐI (tab cũ giữ vị trí đầu)', ss.getSheets().map(s => s.name), ['Trang tính1', 'Ghi chú', '2026-2027']);
 check('Hình thức đề cũ -> "15 Phút - Lần 1"', ss.getSheetByName('2026-2027').rows[1][3], '15 Phút - Lần 1');
 post({ name: 'Bình', className: '6A1', subject: 'Tin học', examTime: 'Lần 2 - Tối đa 5 lần - 15', score: '8', submissionId: 'x1' });
 check('Hình thức đề mới có giới hạn', ss.getSheetByName('2026-2027').rows[2][3], '15 Phút - Lần 2 - Tối đa 5 lần');
@@ -114,6 +114,16 @@ ss.getSheetByName('2026-2027').rows.push([9, 'Sửa tay', 'Tin học', '15 Phút
 check('Lần đọc sau trả từ bộ nhớ đệm', get({ key: 'ma-bi-mat' }).length, before);
 post({ name: 'Dũng', className: '6A1', subject: 'Tin học', examTime: '15', score: 6 });
 check('Bài nộp mới xóa bộ nhớ đệm', get({ key: 'ma-bi-mat' }).length, before + 2);
+
+// ---------- Bấm "Chạy" trong trình soạn thảo ----------
+{
+    const lg = makeSheet('Trang tính1', [HEAD7, [1, 'A', 'Tin học', '15 Phút', '6A1', new Date(2026, 8, 28), 7]]);
+    const t = load('k', [lg], NOW);
+    const r = JSON.parse(t.api.doPost(undefined).t);
+    check('Chạy doPost không có dữ liệu -> không ghi, không tạo tab', [r.status, t.ss.getSheets().map(s => s.name), lg.rows.length], ['error', ['Trang tính1'], 2]);
+    t.api.kiemTraCaiDat();
+    check('kiemTraCaiDat chỉ báo cáo', t.logs, ['Apps Script phiên bản 3 · đã đặt mã đọc dữ liệu', 'Tab "Trang tính1": 1 bài nộp', 'Năm học có dữ liệu: 2026-2027']);
+}
 
 // ---------- Script không đặt mã ----------
 ({ api } = load('', [makeSheet('Trang tính1', [HEAD7, [1, 'X', 'Tin học', '15 Phút', '6A1', new Date(2026, 8, 1), 5]])], NOW));

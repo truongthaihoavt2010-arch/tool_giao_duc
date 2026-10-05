@@ -2040,6 +2040,21 @@ function ghPagesUrl(c, path) {
     return c.repo.toLowerCase() === host ? `https://${host}/${encoded}` : `https://${host}/${encodeURIComponent(c.repo)}/${encoded}`;
 }
 
+// Token fine-grained không báo đúng quyền qua thông tin kho, nên thử ghi "rỗng": GitHub kiểm tra quyền
+// TRƯỚC nội dung -> 422 (thiếu "content") = token có quyền ghi; 403/404 = token chưa được cấp quyền cho kho này.
+async function githubCanWrite(cr) {
+    try {
+        await githubApi(cr, 'PUT', `${ghRepoPath(cr)}/contents/_kiem_tra_quyen.html`, { message: 'Kiểm tra quyền ghi' });
+        return true;
+    } catch (e) {
+        if (e.status === 422) return true;
+        if (e.status === 403 || e.status === 404) return false;
+        throw e;
+    }
+}
+
+const GH_FIX_HINT = 'Sửa token: GitHub › Settings › Developer settings › Fine-grained tokens › chọn token › Repository access: thêm kho này; Permissions › Contents: Read and write › Update.';
+
 async function saveGithubConfig() {
     if (isWebVersion()) return setGhStatus('Không lưu token trên bản web. Hãy dùng phần mềm trên máy tính.', 'red');
     const f = readGithubForm();
@@ -2053,9 +2068,10 @@ async function saveGithubConfig() {
         const repoName = c.repos[subject];
         if (!repoName) { problems.push(`• ${subject}: chưa nhập tên kho`); continue; }
         try {
-            const repo = await githubApi(Object.assign({}, c, { repo: repoName }), 'GET', ghRepoPath({ owner: c.owner, repo: repoName }));
-            if (repo.permissions && !repo.permissions.push) problems.push(`• ${subject} (${repoName}): token chỉ có quyền đọc, cần Contents: Read and write`);
-            else if (repo.private) problems.push(`• ${subject} (${repoName}): kho đang Riêng tư — GitHub Pages miễn phí chỉ chạy với kho Công khai`);
+            const cr = Object.assign({}, c, { repo: repoName });
+            const repo = await githubApi(cr, 'GET', ghRepoPath(cr));
+            if (repo.private) problems.push(`• ${subject} (${repoName}): kho đang Riêng tư — GitHub Pages miễn phí chỉ chạy với kho Công khai`);
+            else if (!(await githubCanWrite(cr))) problems.push(`• ${subject} (${repoName}): token CHƯA có quyền ghi vào kho này`);
             else ok++;
         } catch (e) {
             if (e.status === 401) { setGhStatus('❌ ' + e.message, 'red'); return; }
@@ -2063,7 +2079,7 @@ async function saveGithubConfig() {
         }
     }
     if (!problems.length) setGhStatus(`✅ ${ok}/${GH_SUBJECTS.length} kho sẵn sàng. Có thể đăng đề cho mọi môn.`);
-    else setGhStatus(`${ok}/${GH_SUBJECTS.length} kho sẵn sàng. Cần xử lý:\n${problems.join('\n')}`, ok ? 'orange' : 'red');
+    else setGhStatus(`${ok}/${GH_SUBJECTS.length} kho sẵn sàng. Cần xử lý:\n${problems.join('\n')}` + (problems.some(x => x.includes('CHƯA có quyền ghi')) ? `\n${GH_FIX_HINT}` : ''), ok ? 'orange' : 'red');
 }
 
 function clearGithubToken() {
@@ -2171,7 +2187,9 @@ async function confirmPublish() {
         renderPublishedList();
         await waitForPages(url);
     } catch (e) {
-        openPublishModal('❌ ' + (e.status === 404 ? `Không tìm thấy kho "${repo}" hoặc token chưa được cấp quyền cho kho này. Kiểm tra ở trang "Google Sheets" › Đăng đề lên GitHub.` : e.message), '', 'red');
+        openPublishModal('❌ ' + (e.status === 404 ? `Không tìm thấy kho "${repo}" hoặc token chưa được cấp quyền cho kho này. Kiểm tra ở trang "Google Sheets" › Đăng đề lên GitHub.`
+            : e.status === 403 ? `Token chưa có quyền ghi vào kho "${repo}". ${GH_FIX_HINT} Sau đó vào trang "Google Sheets" › Đăng đề lên GitHub bấm "Lưu & kiểm tra" để xác nhận.`
+            : e.message), '', 'red');
     }
 }
 

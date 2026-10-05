@@ -113,6 +113,8 @@ TOOL GIAO DUC/
 - Mỗi môn **một kho công khai đã bật GitHub Pages** (tài khoản `truongthaihoavt2010-arch`): `kttx-toan`, `kttx-nguvan`, `kttx-tienganh`, `kttx-vatly`, `kttx-hoahoc`, `kttx-sinhhoc`, `kttx-lichsu`, `kttx-dialy`, `kttx-tinhoc` (hai kho `kttx-lichsu`, `kttx-dialy` có từ trước, 7 kho còn lại tạo ngày 05/10/2026). Kho `kttxdialy` (không có chữ `-`) là bản cũ không dùng.
 - **Cách đăng:** Xem trước đề › **Đăng lên GitHub & lấy link** › hộp thoại tự chọn kho theo môn của đề (đổi được) › **đặt tên đề** › Đăng & lấy link. Tên đề thành tên file (bỏ dấu, `_`); link dạng `https://truongthaihoavt2010-arch.github.io/kttx-tinhoc/Tin_hoc_15_phut_Lan_1.html`; đề được đặt ở thư mục gốc kho, nhánh `main`.
 - Trùng tên đề trong kho → hỏi **ghi đè** (link giữ nguyên). Danh sách "Đề đã đăng" có nút **Gỡ đề**.
+- **Đăng đề đã tạo từ trang "Đề của tôi"** (06/10/2026): nút **Đăng GitHub** ở mỗi dòng (1 đề) hoặc tick nhiều đề rồi **Đăng các đề đã chọn** (nhiều đề). Hộp thoại cho từng đề: tên đề, **kho lưu trữ (môn)**, thời gian, lần kiểm tra, số lần tối đa, lớp áp dụng; phía trên: đổi kho cho tất cả, xáo trộn, chọn tên từ danh sách, ghi đè nếu trùng tên. Đăng xong hiện link + Sao chép + Mã QR + tự báo "link đã hoạt động"; đề đã đăng có dấu **✅ Đã đăng** trong bảng. Đề được lưu kèm thời gian/lần/số lần tối đa từ lúc tạo; đề cũ thiếu các thông số này lấy theo giá trị đang chọn trên form (sửa được trong hộp thoại); đề cũ chưa lưu câu hỏi bị bỏ qua có thông báo. Cảnh báo 1 lần nếu có đề trùng "môn + thời gian + lần" đã có bài nộp.
+- File `.html` đã tải về máy: phần mềm chưa có chỗ chọn file để đăng (đưa vào kho bằng Git).
 - Tên kho theo môn sửa được ở trang cài đặt (mặc định như trên); cấu hình lưu `robotGithub` = `{owner, token, repos}`.
 - Đã kiểm thử thật (05/10/2026): lưu cấu hình 9/9 kho → đăng đề thử vào `kttx-tinhoc` → link mở được, có mã QR → đăng lại cùng tên (hỏi ghi đè) → gỡ đề, kho trở lại như cũ.
 
@@ -247,9 +249,11 @@ Robot Tạo Đề ──xuất / đăng GitHub──▶ Đề thi (.html / link)
 - `b9dc2ca` **Kiểm tra toàn bộ tính năng (không nâng cấp):** sửa lỗi đọc file mẫu Word (dòng tiêu đề "Phần 3 … "Gợi ý:" …" bị hiểu nhầm); sửa ngày trong tên file sao lưu; thêm `tests/test_parse_local.js`.
 - Chốt: **bản dùng thử thi SKKN — đóng băng tính năng.**
 
-### Giai đoạn 7 — Kho GitHub theo môn (05/10/2026)
+### Giai đoạn 7 — Kho GitHub theo môn (05–06/10/2026)
 - Theo yêu cầu của tác giả: tạo sẵn kho cho từng môn học (7 kho mới `kttx-*`, bật Pages; giữ 2 kho cũ), phần mềm **chọn kho theo môn + chỉ đặt tên đề**, đăng xong ra link + mã QR ngay. Đây là thay đổi tính năng theo yêu cầu trực tiếp của tác giả (ngoại lệ so với quyết định đóng băng).
 - Thay cấu hình GitHub cũ (một kho + thư mục + nhánh) bằng **tài khoản + token + 9 kho theo môn**; thêm hộp thoại đăng đề; kiểm tra 9 kho khi lưu cấu hình.
+- 06/10/2026: sửa lỗi "Lưu & kiểm tra" báo sai quyền ghi (token fine-grained luôn đọc được kho công khai → kiểm tra bằng yêu cầu ghi bỏ trống: 422 = có quyền, 403/404 = thiếu); token đúng cho 9 kho `kttx-…` (Contents: Read and write), **không** cấp quyền cho kho mã nguồn `tool_giao_duc`.
+- 06/10/2026: thêm đăng **một hoặc nhiều đề đã tạo** từ "Đề của tôi" (xem mục 3.7); kiểm thử thật với 2 kho.
 
 ### Giai đoạn 6 — Hoàn thiện hồ sơ SKKN (01/10/2026) · `8ba053a`, `47c90b0`
 - Viết lại `SO_TAY_DU_AN.md` đầy đủ; viết `KE_HOACH_VIET_DU_AN.md` (14 kế hoạch đã thực hiện, 12 quyết định thiết kế, bài học).

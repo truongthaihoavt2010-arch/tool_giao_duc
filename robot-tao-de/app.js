@@ -67,7 +67,7 @@ function getStats() {
     return stats;
 }
 
-function saveExamToHistory(subject, grade, numQuestions, title, questionsData) {
+function saveExamToHistory(subject, grade, numQuestions, title, questionsData, settings) {
     const stats = getStats();
     stats.totalExams++;
     stats.totalQuestions += parseInt(numQuestions);
@@ -78,7 +78,8 @@ function saveExamToHistory(subject, grade, numQuestions, title, questionsData) {
         title: title || `Đề kiểm tra ${subject} - ${grade}`,
         subject, grade, numQuestions,
         timestamp: new Date().getTime(),
-        data: questionsData
+        data: questionsData,
+        ...(settings || {})
     });
 
     // Lưu vào Ngân hàng câu hỏi
@@ -134,13 +135,14 @@ function renderExamsTable() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><input type="checkbox" class="row-checkbox" value="${exam.id}"></td>
-                <td style="font-weight:600; color:var(--primary)">${esc(exam.title || 'Chưa đặt tên')}</td>
+                <td style="font-weight:600; color:var(--primary)">${esc(exam.title || 'Chưa đặt tên')}${publishedBadge(exam.id)}</td>
                 <td>${esc(exam.subject || '-')}</td>
                 <td>${esc(exam.grade || '-')}</td>
                 <td>${exam.numQuestions || 0}</td>
                 <td>${exam.timestamp ? new Date(exam.timestamp).toLocaleDateString("vi-VN") : '-'}</td>
                 <td>
                     <button class="btn-view" onclick="downloadExam(${exam.id})"><i class="fa-solid fa-download"></i> Tải HTML</button>
+                    <button class="btn-view" style="margin-left:5px;" onclick="openBatchPublish([${exam.id}])" title="Đăng đề này lên GitHub và lấy link"><i class="fa-brands fa-github"></i> Đăng GitHub</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -1434,7 +1436,11 @@ async function startGeneration(isAutoMode = false) {
             const grade = document.getElementById('grade').value;
             const title = topic || `Đề ${subject} ${grade}`;
             
-            saveExamToHistory(subject, grade, data.length, title, data);
+            saveExamToHistory(subject, grade, data.length, title, data, {
+                minutes: parseInt(document.getElementById('examTime')?.value, 10) || 45,
+                round: parseInt(document.getElementById('examRound')?.value, 10) || 1,
+                limit: parseInt(document.getElementById('examLimit')?.value, 10) || 0
+            });
             
             document.getElementById('loadingOverlay').classList.remove('active');
             
@@ -1855,10 +1861,10 @@ function getExamMeta() {
 }
 
 // Tạo nội dung file đề (dùng cho tải file và đăng lên GitHub)
-function buildExamHtml(meta) {
+function buildExamHtml(meta, data = currentExamData) {
     function b64DecodeUnicode(str) { return decodeURIComponent(atob(str).split('').map(function(c) { return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join('')); }
     if (typeof TEMPLATE_B64 === "undefined") throw new Error("Không tìm thấy template_data.js.");
-    const opts = getExportOptions();
+    const opts = meta.options || getExportOptions();
     let t = b64DecodeUnicode(TEMPLATE_B64);
     // JSON.stringify: dấu " hoặc xuống dòng không làm hỏng JS; escape "<" để "</script>" không cắt ngang thẻ script;
     // dùng hàm thay thế để "$" trong nội dung không bị hiểu nhầm
@@ -1867,7 +1873,7 @@ function buildExamHtml(meta) {
         if (!t.includes(placeholder)) throw new Error('Mẫu đề thi thiếu: ' + placeholder);
         t = t.replace(placeholder, () => value);
     };
-    put('const EXAM_DATA = []; // Template placeholder', `const EXAM_DATA = ${js(currentExamData)};`);
+    put('const EXAM_DATA = []; // Template placeholder', `const EXAM_DATA = ${js(data)};`);
     put('const WEBHOOK_URL = ""; // Template placeholder', `const WEBHOOK_URL = ${js(lsGet('robotWebhookUrl').trim())};`);
     put('const EXAM_TIME = 45; // Template placeholder', `const EXAM_TIME = ${meta.minutes};`);
     put('const SUBJECT = "Chung"; // Template placeholder', `const SUBJECT = ${js(meta.subject)};`);
@@ -1880,29 +1886,37 @@ function buildExamHtml(meta) {
 }
 
 // Cảnh báo khi "môn + thời gian + lần kiểm tra" đã có bài nộp trong năm học (dễ gộp nhầm 2 bài khác nhau)
-async function confirmExamRoundNotUsed(meta) {
-    if (!lsGet('robotWebhookUrl').trim()) return true;
+// Thông tin lần kiểm tra đã có bài nộp trong năm học (null = chưa dùng hoặc không kiểm tra được)
+async function getRoundUsage(meta) {
+    if (!lsGet('robotWebhookUrl').trim()) return null;
     if (!sheetRows.length) {
         try {
             const rows = await Promise.race([fetchSheetJson({ year: 'all' }), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000))]);
             if (Array.isArray(rows)) sheetRows = rows;
         } catch (e) {
             console.warn('[Xuất đề] Không kiểm tra được lần kiểm tra trùng:', e.message);
-            return true; // Không chặn giáo viên khi Google chậm
+            return null; // Không chặn giáo viên khi Google chậm
         }
     }
     const year = EduScores.currentSchoolYear();
     const same = r => EduScores.normKey(r.subject) === EduScores.normKey(meta.subject) && r.hinhThucBase === `${meta.minutes} Phút`;
     const all = EduScores.process(sheetRows, { year }).all.filter(r => !r.dup && same(r));
     const used = all.filter(r => r.round === meta.round);
-    if (!used.length) return true;
+    if (!used.length) return null;
     const usedRounds = new Set(all.map(r => r.round));
     let free = 1;
     while (usedRounds.has(free)) free++;
     const last = used.reduce((a, b) => (b.time > a.time ? b : a));
-    return confirm(`Năm học ${year} đã có ${used.length} bài nộp cho "${meta.subject} – ${meta.minutes} phút – Lần ${meta.round}" (lần nộp gần nhất: ${last.dateText}).\n\n` +
+    return { year, used, free, last };
+}
+
+// Cảnh báo khi "môn + thời gian + lần kiểm tra" đã có bài nộp trong năm học (dễ gộp nhầm 2 bài khác nhau)
+async function confirmExamRoundNotUsed(meta) {
+    const u = await getRoundUsage(meta);
+    if (!u) return true;
+    return confirm(`Năm học ${u.year} đã có ${u.used.length} bài nộp cho "${meta.subject} – ${meta.minutes} phút – Lần ${meta.round}" (lần nộp gần nhất: ${u.last.dateText}).\n\n` +
         `• Nếu đây là CÙNG bài kiểm tra (xuất lại, sửa đề...): bấm OK.\n` +
-        `• Nếu đây là bài kiểm tra KHÁC: bấm Hủy rồi chọn "Lần kiểm tra" khác` + (free <= 6 ? ` (gợi ý: Lần ${free})` : '') + `, nếu không điểm 2 bài sẽ bị gộp và lấy điểm cao nhất.`);
+        `• Nếu đây là bài kiểm tra KHÁC: bấm Hủy rồi chọn "Lần kiểm tra" khác` + (u.free <= 6 ? ` (gợi ý: Lần ${u.free})` : '') + `, nếu không điểm 2 bài sẽ bị gộp và lấy điểm cao nhất.`);
 }
 
 function examFileBaseName(meta) {
@@ -2295,4 +2309,229 @@ async function unpublishExam(i) {
     } catch (e) {
         alert('Không gỡ được đề: ' + e.message);
     }
+}
+
+
+// ======= ĐĂNG MỘT HOẶC NHIỀU ĐỀ ĐÃ TẠO (trang "Đề của tôi") =======
+function parseClasses(str) {
+    return String(str || '').split(/[,;\n]/).map(c => c.trim().replace(/^lớp\s+/i, '')).filter(Boolean);
+}
+
+// Dấu "Đã đăng" cạnh tên đề (đề đã được đăng từ trang Đề của tôi)
+function publishedBadge(examId) {
+    const list = getPublished().filter(p => p.examId === examId);
+    if (!list.length) return '';
+    const p = list[0];
+    return `<div style="font-size:12px; font-weight:500; margin-top:3px;"><span style="color:var(--c-green);">✅ Đã đăng</span> · <a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.repo.split('/')[1])}</a>${list.length > 1 ? ` · ${list.length} lần` : ''}</div>`;
+}
+
+function publishSelectedExams() {
+    const ids = Array.from(document.querySelectorAll('#tableExamsBody input.row-checkbox:checked')).map(x => Number(x.value));
+    if (!ids.length) return alert('Vui lòng tick chọn ít nhất một đề để đăng.');
+    openBatchPublish(ids);
+}
+
+function bpRepoOptions(c, selected) {
+    return GH_SUBJECTS.filter(s => c.repos[s]).map(s => `<option value="${esc(s)}" ${s === selected ? 'selected' : ''}>${esc(s)} — ${esc(c.repos[s])}</option>`).join('');
+}
+
+function openBatchPublish(ids) {
+    if (isWebVersion()) return alert('Đăng đề chỉ dùng được trên phần mềm chạy ở máy tính (mở bằng MO_TOOL_GIAO_DUC.bat).');
+    const c = getGithubConfig();
+    if (!c.owner || !c.token) {
+        alert('Chưa nhập token GitHub. Vào trang "Google Sheets" › mục "Đăng đề lên GitHub" để cài đặt (chỉ làm một lần).');
+        return switchPage('page-settings', document.querySelectorAll('.menu-item')[6]);
+    }
+    const stats = getStats();
+    const exams = ids.map(id => stats.recentExams.find(e => e.id === id)).filter(e => e && Array.isArray(e.data) && e.data.length);
+    if (!exams.length) return alert('Không tìm thấy nội dung của đề đã chọn (đề cũ có thể chưa lưu câu hỏi).');
+    const skipped = ids.length - exams.length;
+
+    const opts = getExportOptions();
+    document.getElementById('bpShuffle').checked = opts.shuffle;
+    document.getElementById('bpStudentList').checked = opts.studentList;
+    document.getElementById('bpOverwrite').checked = false;
+    document.getElementById('bpAllRepo').innerHTML = '<option value="">— giữ kho theo môn của từng đề —</option>' + bpRepoOptions(c, '');
+
+    const minOpts = document.getElementById('examTime').innerHTML;
+    const roundOpts = document.getElementById('examRound').innerHTML;
+    const limitOpts = document.getElementById('examLimit').innerHTML;
+    const fieldsPerRow = e => ({
+        minutes: e.minutes || parseInt(document.getElementById('examTime').value, 10) || 45,
+        round: e.round || 1,
+        limit: e.limit || 0
+    });
+    document.getElementById('bpRows').innerHTML = exams.map((e, i) => {
+        const f = fieldsPerRow(e);
+        const subject = GH_SUBJECTS.includes(e.subject) && c.repos[e.subject] ? e.subject : '';
+        return `<div class="bp-row" data-exam="${e.id}">
+            <div class="bp-title">${esc(e.title || 'Đề không tên')} <span class="bp-meta">${esc(e.subject || '')} · ${e.numQuestions || e.data.length} câu</span></div>
+            <div class="bp-grid">
+                <label class="bp-wide">Tên đề<input type="text" class="form-control bp-name" value="${esc(`${e.subject || 'Đề'} ${f.minutes} phút Lần ${f.round}`)}" autocomplete="off"></label>
+                <label class="bp-wide">Kho lưu trữ (môn)<select class="form-control bp-repo"><option value="">— chọn kho —</option>${bpRepoOptions(c, subject)}</select></label>
+                <label>Thời gian<select class="form-control bp-min" data-v="${f.minutes}">${minOpts}</select></label>
+                <label>Lần kiểm tra<select class="form-control bp-round" data-v="${f.round}">${roundOpts}</select></label>
+                <label>Số lần tối đa<select class="form-control bp-limit" data-v="${f.limit}">${limitOpts}</select></label>
+                <label>Lớp áp dụng<input type="text" class="form-control bp-classes" value="${esc(e.grade || '')}" autocomplete="off"></label>
+            </div>
+            <div class="bp-link"></div>
+            <div class="bp-status"></div>
+        </div>`;
+    }).join('');
+    document.querySelectorAll('#bpRows select[data-v]').forEach(sel => { sel.value = sel.dataset.v; });
+    document.querySelectorAll('#bpRows .bp-row').forEach(row => row.addEventListener('input', () => bpUpdatePreview(row)));
+    document.querySelectorAll('#bpRows .bp-row').forEach(row => row.addEventListener('change', () => bpUpdatePreview(row)));
+    document.querySelectorAll('#bpRows .bp-row').forEach(bpUpdatePreview);
+
+    document.getElementById('bpTitle').innerText = exams.length === 1 ? 'Đăng 1 đề lên GitHub' : `Đăng ${exams.length} đề lên GitHub`;
+    document.getElementById('bpSummary').innerText = skipped ? `Bỏ qua ${skipped} đề cũ chưa lưu nội dung câu hỏi.` : '';
+    const btn = document.getElementById('bpRunBtn');
+    btn.disabled = false;
+    btn.onclick = bpRun;
+    btn.innerHTML = `<i class="fa-brands fa-github"></i> Đăng ${exams.length === 1 ? 'đề' : exams.length + ' đề'} &amp; lấy link`;
+    document.getElementById('batchPublishModal').classList.add('active');
+}
+
+function closeBatchPublish() {
+    document.getElementById('batchPublishModal').classList.remove('active');
+    renderExamsTable();
+}
+
+function bpSetAllRepo() {
+    const v = document.getElementById('bpAllRepo').value;
+    if (!v) return;
+    document.querySelectorAll('#bpRows .bp-repo').forEach(sel => { sel.value = v; });
+    document.querySelectorAll('#bpRows .bp-row').forEach(bpUpdatePreview);
+}
+
+function bpUpdatePreview(row) {
+    const c = getGithubConfig();
+    const repo = c.repos[row.querySelector('.bp-repo').value];
+    const file = slugFileName(row.querySelector('.bp-name').value) + '.html';
+    row.querySelector('.bp-link').innerText = repo ? 'Link sẽ là: ' + ghPagesUrl({ owner: c.owner, repo }, ghFilePath(c, file)) : 'Chưa chọn kho lưu trữ.';
+}
+
+function bpSetStatus(row, html) { row.querySelector('.bp-status').innerHTML = html; }
+
+function bpActions(url) {
+    return `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>
+        <button class="btn-view" style="margin-left:6px;" data-url="${esc(url)}" onclick="bpCopy(this)"><i class="fa-regular fa-copy"></i> Sao chép</button>
+        <button class="btn-view" style="margin-left:4px;" data-url="${esc(url)}" onclick="bpQr(this)"><i class="fa-solid fa-qrcode"></i> Mã QR</button>`;
+}
+async function bpCopy(btn) {
+    try { await navigator.clipboard.writeText(btn.dataset.url); } catch (e) {}
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Đã chép';
+}
+function bpQr(btn) { openPublishModal('Link bài kiểm tra:', btn.dataset.url, 'var(--c-green)'); }
+
+// Tải một file đề lên đúng kho; trả về thông tin file (exists = trùng tên và chưa cho ghi đè)
+async function ghUploadExam(c, repo, rawName, html, overwrite) {
+    const cr = Object.assign({}, c, { repo });
+    const file = slugFileName(rawName) + '.html';
+    const path = ghFilePath(c, file);
+    const url = ghPagesUrl(cr, path);
+    const apiPath = `${ghRepoPath(cr)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
+    let sha;
+    try { sha = (await githubApi(cr, 'GET', `${apiPath}?ref=${encodeURIComponent(c.branch)}`)).sha; } catch (e) { if (e.status !== 404) throw e; }
+    if (sha && !overwrite) return { exists: true, file, url };
+    const res = await githubApi(cr, 'PUT', apiPath, {
+        message: `Đăng đề ${rawName}`, content: utf8ToBase64(html), branch: c.branch, ...(sha ? { sha } : {})
+    });
+    return { file, path, url, replaced: !!sha, sha: res.content && res.content.sha };
+}
+
+async function bpRun() {
+    const c = getGithubConfig();
+    const rows = Array.from(document.querySelectorAll('#bpRows .bp-row'));
+    const stats = getStats();
+    const overwrite = document.getElementById('bpOverwrite').checked;
+    const options = { shuffle: document.getElementById('bpShuffle').checked, studentList: document.getElementById('bpStudentList').checked };
+    lsSet('robotExportOptions', JSON.stringify(options));
+
+    // Thu thập + kiểm tra dữ liệu nhập
+    const items = [];
+    const seen = new Set();
+    let invalid = false;
+    for (const row of rows) {
+        if (row.dataset.done) continue; // đề đã đăng thành công ở lần bấm trước
+        const exam = stats.recentExams.find(e => e.id === Number(row.dataset.exam));
+        const subjectKey = row.querySelector('.bp-repo').value;
+        const name = row.querySelector('.bp-name').value.trim();
+        bpSetStatus(row, '');
+        const err = !subjectKey ? 'Chưa chọn kho lưu trữ.' : !name ? 'Chưa đặt tên đề.' : '';
+        const key = c.repos[subjectKey] + '/' + slugFileName(name);
+        if (!err && seen.has(key)) { bpSetStatus(row, '<span style="color:var(--c-red);">❌ Trùng tên với đề khác trong cùng kho. Hãy đặt tên khác.</span>'); invalid = true; continue; }
+        if (err) { bpSetStatus(row, `<span style="color:var(--c-red);">❌ ${err}</span>`); invalid = true; continue; }
+        seen.add(key);
+        items.push({
+            row, exam, name, repo: c.repos[subjectKey],
+            meta: {
+                subject: (exam.subject || subjectKey).trim(),
+                minutes: parseInt(row.querySelector('.bp-min').value, 10) || 45,
+                round: parseInt(row.querySelector('.bp-round').value, 10) || 1,
+                limit: parseInt(row.querySelector('.bp-limit').value, 10) || 0,
+                classes: parseClasses(row.querySelector('.bp-classes').value),
+                options
+            }
+        });
+    }
+    if (invalid) return;
+    if (!items.length) return closeBatchPublish();
+
+    if (!lsGet('robotWebhookUrl').trim() && !confirm('Chưa cấu hình Google Sheets: học sinh làm bài sẽ KHÔNG lưu được điểm. Vẫn đăng đề?')) return;
+
+    // Cảnh báo một lần cho các đề trùng lần kiểm tra đã có bài nộp
+    const warns = [];
+    for (const it of items) {
+        const u = await getRoundUsage(it.meta);
+        if (u) warns.push(`• ${it.name}: ${it.meta.subject} ${it.meta.minutes} phút Lần ${it.meta.round} đã có ${u.used.length} bài nộp` + (u.free <= 6 ? ` (gợi ý lần trống: Lần ${u.free})` : ''));
+    }
+    if (warns.length && !confirm(`Các đề sau trùng "môn + thời gian + lần kiểm tra" đã có bài nộp trong năm học, điểm sẽ bị gộp và lấy điểm cao nhất:\n\n${warns.join('\n')}\n\nBấm OK nếu là CÙNG bài kiểm tra; Hủy để quay lại đổi "Lần kiểm tra".`)) return;
+
+    const btn = document.getElementById('bpRunBtn');
+    btn.disabled = true;
+    let ok = 0, fail = 0, skippedExists = 0;
+    const done = [];
+    for (const it of items) {
+        bpSetStatus(it.row, '⏳ Đang tải lên...');
+        try {
+            const html = buildExamHtml(it.meta, it.exam.data);
+            const r = await ghUploadExam(c, it.repo, it.name, html, overwrite);
+            if (r.exists) {
+                skippedExists++;
+                bpSetStatus(it.row, `<span style="color:#b45309;">⚠️ Kho <b>${esc(it.repo)}</b> đã có đề tên "${esc(r.file)}" — chưa đăng. Đặt tên khác, hoặc tick "Ghi đè nếu trùng tên".</span>`);
+                continue;
+            }
+            const entry = { path: r.path, url: r.url, sha: r.sha, repo: `${c.owner}/${it.repo}`, branch: c.branch, examId: it.exam.id,
+                title: `${it.name} (${it.meta.subject} · ${it.meta.minutes} phút · Lần ${it.meta.round})`, classes: it.meta.classes.join(', '), time: Date.now() };
+            setPublished([entry, ...getPublished().filter(p => !(p.repo === entry.repo && p.path === entry.path))]);
+            ok++;
+            it.row.dataset.done = '1';
+            done.push({ it, url: r.url });
+            bpSetStatus(it.row, `✅ Đã tải lên${r.replaced ? ' (thay đề cũ cùng tên)' : ''} vào <b>${esc(it.repo)}</b> · <span class="bp-live">⏳ đang chờ link hoạt động...</span><div style="margin-top:4px;">${bpActions(r.url)}</div>`);
+        } catch (e) {
+            fail++;
+            bpSetStatus(it.row, `<span style="color:var(--c-red);">❌ ${esc(e.status === 404 ? `Không tìm thấy kho "${it.repo}" hoặc token chưa được cấp quyền cho kho này.`
+                : e.status === 403 ? `Token chưa có quyền ghi vào kho "${it.repo}". ${GH_FIX_HINT}` : e.message)}</span>`);
+        }
+    }
+    renderPublishedList();
+    document.getElementById('bpSummary').innerText = `Đã đăng ${rows.filter(r => r.dataset.done).length}/${rows.length} đề` + (skippedExists ? ` · ${skippedExists} đề trùng tên chưa đăng` : '') + (fail ? ` · ${fail} đề lỗi` : '') +
+        (ok ? '. Link thường hoạt động sau 30 giây – 2 phút.' : '');
+    btn.disabled = false;
+    btn.innerHTML = skippedExists || fail ? '<i class="fa-solid fa-rotate-right"></i> Đăng lại các đề chưa đăng' : '<i class="fa-solid fa-check"></i> Xong';
+    if (!skippedExists && !fail) btn.onclick = closeBatchPublish; else btn.onclick = bpRun;
+    renderExamsTable();
+
+    // Chờ từng link hoạt động (không chặn giao diện)
+    done.forEach(async ({ it, url }) => {
+        const live = it.row.querySelector('.bp-live');
+        const started = Date.now();
+        while (Date.now() - started < 4 * 60 * 1000) {
+            if (!document.getElementById('batchPublishModal').classList.contains('active')) return;
+            try { if ((await fetch(url + '?t=' + Date.now(), { cache: 'no-store' })).ok) { live.innerHTML = '<span style="color:var(--c-green);">🟢 link đã hoạt động</span>'; return; } } catch (e) {}
+            await new Promise(r => setTimeout(r, 6000));
+        }
+        live.innerHTML = '<span style="color:#b45309;">chưa mở được sau 4 phút — thử lại link sau ít phút</span>';
+    });
 }

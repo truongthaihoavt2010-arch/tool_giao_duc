@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Robot - Tạo Đề Thông Minh</title>
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=8">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -285,9 +285,12 @@
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><i class="fa-solid fa-file-lines"></i> Kho Đề Của Tôi</div>
-                    <button class="btn-outline" style="color: #d63031; border-color: #d63031; padding: 6px 12px; font-size: 13px;" onclick="deleteSelectedExams()"><i class="fa-solid fa-trash-can"></i> Xóa mục đã chọn</button>
+                    <div style="display:flex; gap:10px; flex-wrap: wrap;">
+                        <button class="btn-primary" style="background:#24292f; padding: 6px 12px; font-size: 13px;" onclick="publishSelectedExams()" title="Tick chọn một hoặc nhiều đề rồi đăng lên GitHub"><i class="fa-brands fa-github"></i> Đăng các đề đã chọn</button>
+                        <button class="btn-outline" style="color: #d63031; border-color: #d63031; padding: 6px 12px; font-size: 13px;" onclick="deleteSelectedExams()"><i class="fa-solid fa-trash-can"></i> Xóa mục đã chọn</button>
+                    </div>
                 </div>
-                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Danh sách tất cả các đề kiểm tra bạn đã tạo trên thiết bị này.</p>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Danh sách tất cả các đề kiểm tra bạn đã tạo trên thiết bị này. Đăng <b>một đề</b> bằng nút "Đăng GitHub" ở cuối dòng, hoặc <b>nhiều đề</b> bằng cách tick chọn rồi bấm "Đăng các đề đã chọn".</p>
                 <div class="table-responsive">
                     <table class="data-table">
                         <thead>
@@ -298,7 +301,7 @@
                                 <th>Khối lớp</th>
                                 <th>Số câu</th>
                                 <th>Ngày tạo</th>
-                                <th>Hành động</th>
+                                <th style="min-width: 230px;">Hành động</th>
                             </tr>
                         </thead>
                         <tbody id="tableExamsBody">
@@ -899,6 +902,30 @@ function saoLuu() {
         </div>
     </div>
 
+    <!-- Modal Đăng một hoặc nhiều đề đã tạo -->
+    <div id="batchPublishModal" class="modal-overlay">
+        <div class="modal-content" style="width: 860px; max-width: 96%; max-height: 92vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h3><i class="fa-brands fa-github"></i> <span id="bpTitle">Đăng đề lên GitHub</span></h3>
+                <button class="close-btn" onclick="closeBatchPublish()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="bp-toolbar">
+                <label>Đổi kho cho tất cả đề: <select id="bpAllRepo" class="form-control" style="display:inline-block; width:auto; min-width:240px;" onchange="bpSetAllRepo()"></select></label>
+                <label title="Mỗi học sinh nhận thứ tự câu hỏi và đáp án khác nhau"><input type="checkbox" id="bpShuffle"> Xáo trộn câu hỏi &amp; đáp án</label>
+                <label title="Học sinh chọn tên trong danh sách lớp (trang Quản lý lớp học)"><input type="checkbox" id="bpStudentList"> Chọn tên từ danh sách lớp</label>
+                <label title="Nếu kho đã có đề cùng tên thì thay bằng đề mới (link giữ nguyên)"><input type="checkbox" id="bpOverwrite"> Ghi đè nếu trùng tên</label>
+            </div>
+            <div id="bpRows" class="bp-rows"></div>
+            <div class="bp-footer">
+                <span id="bpSummary" style="font-size: 13px; color: var(--text-muted);"></span>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-outline" onclick="closeBatchPublish()">Đóng</button>
+                    <button class="btn-primary" id="bpRunBtn" onclick="bpRun()"><i class="fa-brands fa-github"></i> Đăng &amp; lấy link</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Link đề thi -->
     <div id="publishModal" class="modal-overlay">
         <div class="modal-content" style="width: 520px; max-width: 95%; text-align: center;">
@@ -1001,6 +1028,6 @@ function saoLuu() {
 
     <script src="../shared/scores.js?v=1"></script>
     <script src="template_data.js"></script>
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=10"></script>
 </body>
 </html>

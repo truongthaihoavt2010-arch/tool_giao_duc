@@ -374,3 +374,5 @@ body {
 .bp-status { font-size: 13px; margin-top: 6px; word-break: break-all; }
 .bp-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); flex-wrap: wrap; }
 @media (max-width: 760px) { .bp-grid { grid-template-columns: 1fr 1fr; } }
+
+.bp-grid label.bp-full { grid-column: 1 / -1; }

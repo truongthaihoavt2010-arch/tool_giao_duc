@@ -137,7 +137,7 @@ function renderExamsTable() {
                 <td><input type="checkbox" class="row-checkbox" value="${exam.id}"></td>
                 <td style="font-weight:600; color:var(--primary)">${esc(exam.title || 'Chưa đặt tên')}${publishedBadge(exam.id)}</td>
                 <td>${esc(exam.subject || '-')}</td>
-                <td>${esc(exam.grade || '-')}</td>
+                <td>${(exam.khoi || inferKhoi(exam.grade)) ? `<b>Khối ${esc(exam.khoi || inferKhoi(exam.grade))}</b><div style="font-size:12px; color:var(--text-muted);">${esc(exam.grade || '')}</div>` : esc(exam.grade || '-')}</td>
                 <td>${exam.numQuestions || 0}</td>
                 <td>${exam.timestamp ? new Date(exam.timestamp).toLocaleDateString("vi-VN") : '-'}</td>
                 <td>
@@ -1031,6 +1031,7 @@ function appendChatMessage(text, sender) {
 function buildPrompt(contextText, countsOverride = null, avoidQuestions = []) {
     const subject = document.getElementById('subject').value || "Không xác định";
     const grade = document.getElementById('grade').value || "Không xác định";
+    const khoi = document.getElementById('khoi')?.value || '';
     const numQuestions = countsOverride
         ? Object.values(countsOverride).reduce((a, b) => a + b, 0)
         : document.getElementById('numQuestions').value;
@@ -1104,7 +1105,7 @@ TỔNG SỐ CÂU YÊU CẦU: ${numQuestions} câu.
 CHI TIẾT:
 ${explicitRanges.join("\n")}
 
-Môn học: ${subject}, Khối lớp: ${grade}
+Môn học: ${subject}, Khối lớp: ${khoi ? khoi + ' (các lớp: ' + grade + ')' : grade}
 Chủ đề ra đề: ${topic}
 Mô tả chi tiết: ${descInput || "Không có"}
 Phân bổ mức độ: CHÍNH XÁC ${numEasy} câu Dễ (${diffEasy}%), ${numMed} câu Trung bình (${diffMed}%), ${numHard} câu Khó (${diffHard}%).
@@ -1298,6 +1299,12 @@ async function callAI(messagesArr, isChat = false) {
 }
 
 async function startGeneration(isAutoMode = false) {
+    const khoiEl = document.getElementById('khoi');
+    if (khoiEl && !khoiEl.value) { alert('Vui lòng chọn Khối (6 – 12) cho đề để phân biệt đề của từng khối khi đăng lên GitHub.'); khoiEl.focus(); return; }
+    if (khoiEl) {
+        const bad = khoiMismatch(khoiEl.value, parseClasses(document.getElementById('grade').value));
+        if (bad.length && !confirm(`Lớp ${bad.join(', ')} không thuộc Khối ${khoiEl.value}. Bạn vẫn muốn tạo đề cho các lớp này?`)) return;
+    }
     let contextText = "";
     
     if (!isAutoMode) {
@@ -1439,7 +1446,8 @@ async function startGeneration(isAutoMode = false) {
             saveExamToHistory(subject, grade, data.length, title, data, {
                 minutes: parseInt(document.getElementById('examTime')?.value, 10) || 45,
                 round: parseInt(document.getElementById('examRound')?.value, 10) || 1,
-                limit: parseInt(document.getElementById('examLimit')?.value, 10) || 0
+                limit: parseInt(document.getElementById('examLimit')?.value, 10) || 0,
+                khoi: parseInt(document.getElementById('khoi')?.value, 10) || 0
             });
             
             document.getElementById('loadingOverlay').classList.remove('active');
@@ -1704,6 +1712,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
     initSheetSettings();
     initGithubSettings();
+    const savedKhoi = lsGet('robotKhoi');
+    if (savedKhoi && document.getElementById('khoi')) { document.getElementById('khoi').value = savedKhoi; onKhoiChange(); }
     
     updateTotalQuestions();
     renderClassesOptions();
@@ -1850,13 +1860,43 @@ function getExamClasses() {
 }
 
 // Thông tin đề đang xuất
+// Khối lớp (6–12): rút ra từ tên lớp, ví dụ "6A1, 6A2" -> 6 (các lớp khác khối -> '' để giáo viên tự chọn)
+function inferKhoi(classesText) {
+    const set = new Set(parseClasses(classesText).map(c => (c.match(/^(\d{1,2})/) || [])[1]).filter(Boolean));
+    return set.size === 1 && +[...set][0] >= 6 && +[...set][0] <= 12 ? [...set][0] : '';
+}
+
+// Các lớp không thuộc khối đã chọn (lớp bắt đầu bằng số khác khối), ví dụ khối 7 mà có lớp 6A1
+function khoiMismatch(khoi, classes) {
+    return (classes || []).filter(c => { const m = String(c).match(/^(\d{1,2})/); return m && m[1] !== String(khoi); });
+}
+
+// Đề đăng vào thư mục riêng theo khối trong kho môn học: khoi6/Ten_de.html (tránh trùng đề giữa các khối)
+const ghExamPath = (c, khoi, file) => [c.folder.replace(/^\/+|\/+$/g, ''), khoi ? 'khoi' + khoi : '', file].filter(Boolean).join('/');
+const KHOI_OPTIONS = [6, 7, 8, 9, 10, 11, 12];
+const khoiOptionsHtml = (selected, withBlank = true) => (withBlank ? `<option value="">— chọn khối —</option>` : '') +
+    KHOI_OPTIONS.map(k => `<option value="${k}" ${String(selected) === String(k) ? 'selected' : ''}>Khối ${k}</option>`).join('');
+
+// Khi đổi Khối: tự điền "Lớp áp dụng" bằng các lớp của khối đó (nếu ô còn trống hoặc đang là giá trị tự điền)
+function onKhoiChange() {
+    const khoi = document.getElementById('khoi').value;
+    lsSet('robotKhoi', khoi);
+    const grade = document.getElementById('grade');
+    if (!khoi || !grade) return;
+    if (grade.value.trim() === '' || grade.dataset.auto === '1') {
+        const names = getClasses().filter(c => String(c.grade) === String(khoi)).map(c => c.name);
+        if (names.length) { grade.value = names.join(', '); grade.dataset.auto = '1'; }
+    }
+}
+
 function getExamMeta() {
     return {
         subject: (document.getElementById('subject').value || 'Chung').trim(),
         minutes: parseInt(document.getElementById('examTime')?.value, 10) || 45,
         round: parseInt(document.getElementById('examRound')?.value, 10) || 1,
         limit: parseInt(document.getElementById('examLimit')?.value, 10) || 0,
-        classes: getExamClasses()
+        classes: getExamClasses(),
+        khoi: parseInt(document.getElementById('khoi')?.value, 10) || 0
     };
 }
 
@@ -1899,7 +1939,8 @@ async function getRoundUsage(meta) {
         }
     }
     const year = EduScores.currentSchoolYear();
-    const same = r => EduScores.normKey(r.subject) === EduScores.normKey(meta.subject) && r.hinhThucBase === `${meta.minutes} Phút`;
+    const sameGrade = r => !meta.khoi || new RegExp('^' + meta.khoi + '(?!\\d)').test(String(r.className || '').trim());
+    const same = r => EduScores.normKey(r.subject) === EduScores.normKey(meta.subject) && r.hinhThucBase === `${meta.minutes} Phút` && sameGrade(r);
     const all = EduScores.process(sheetRows, { year }).all.filter(r => !r.dup && same(r));
     const used = all.filter(r => r.round === meta.round);
     if (!used.length) return null;
@@ -1914,14 +1955,14 @@ async function getRoundUsage(meta) {
 async function confirmExamRoundNotUsed(meta) {
     const u = await getRoundUsage(meta);
     if (!u) return true;
-    return confirm(`Năm học ${u.year} đã có ${u.used.length} bài nộp cho "${meta.subject} – ${meta.minutes} phút – Lần ${meta.round}" (lần nộp gần nhất: ${u.last.dateText}).\n\n` +
+    return confirm(`Năm học ${u.year} đã có ${u.used.length} bài nộp cho "${meta.subject}${meta.khoi ? ' khối ' + meta.khoi : ''} – ${meta.minutes} phút – Lần ${meta.round}" (lần nộp gần nhất: ${u.last.dateText}).\n\n` +
         `• Nếu đây là CÙNG bài kiểm tra (xuất lại, sửa đề...): bấm OK.\n` +
         `• Nếu đây là bài kiểm tra KHÁC: bấm Hủy rồi chọn "Lần kiểm tra" khác` + (u.free <= 6 ? ` (gợi ý: Lần ${u.free})` : '') + `, nếu không điểm 2 bài sẽ bị gộp và lấy điểm cao nhất.`);
 }
 
 function examFileBaseName(meta) {
     const slug = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
-    return `${slug(meta.subject)}_${meta.minutes}phut_Lan${meta.round}`;
+    return `${slug(meta.subject)}${meta.khoi ? '_K' + meta.khoi : ''}_${meta.minutes}phut_Lan${meta.round}`;
 }
 
 async function exportHTML() {
@@ -2146,7 +2187,8 @@ async function publishExam() {
     const select = document.getElementById('pubRepo');
     select.innerHTML = GH_SUBJECTS.filter(s => c.repos[s]).map(s => `<option value="${esc(s)}">${esc(s)} — ${esc(c.repos[s])}</option>`).join('');
     select.value = GH_SUBJECTS.includes(meta.subject) && c.repos[meta.subject] ? meta.subject : (select.options[0] ? select.options[0].value : '');
-    document.getElementById('pubName').value = `${meta.subject} ${meta.minutes} phút Lần ${meta.round}`;
+    document.getElementById('pubKhoi').innerHTML = khoiOptionsHtml(meta.khoi || inferKhoi(meta.classes.join(',')));
+    document.getElementById('pubName').value = `${meta.subject}${meta.khoi ? ' khối ' + meta.khoi : ''} ${meta.minutes} phút Lần ${meta.round}`;
     updatePublishPreview();
     document.getElementById('publishFormModal').classList.add('active');
     setTimeout(() => { const i = document.getElementById('pubName'); i.focus(); i.select(); }, 50);
@@ -2161,7 +2203,7 @@ function updatePublishPreview() {
     const el = document.getElementById('pubLinkPreview');
     if (!repo) { el.innerText = ''; return; }
     const file = slugFileName(document.getElementById('pubName').value) + '.html';
-    el.innerText = 'Link sẽ là: ' + ghPagesUrl({ owner: c.owner, repo }, ghFilePath(c, file));
+    el.innerText = 'Link sẽ là: ' + ghPagesUrl({ owner: c.owner, repo }, ghExamPath(c, document.getElementById('pubKhoi').value, file));
 }
 
 async function confirmPublish() {
@@ -2173,6 +2215,11 @@ async function confirmPublish() {
     if (!meta) return;
     if (!repo) return alert('Chưa chọn kho lưu trữ.');
     if (!rawName) return alert('Vui lòng đặt tên đề.');
+    const khoi = document.getElementById('pubKhoi').value;
+    if (!khoi) return alert('Vui lòng chọn Khối của đề (để đề của các khối không bị trùng nhau).');
+    const bad = khoiMismatch(khoi, meta.classes);
+    if (bad.length && !confirm(`Lớp ${bad.join(', ')} không thuộc Khối ${khoi}. Bạn vẫn muốn đăng?`)) return;
+    meta.khoi = parseInt(khoi, 10);
 
     let html;
     try { html = buildExamHtml(meta); } catch (e) { return alert(e.message); }
@@ -2180,7 +2227,7 @@ async function confirmPublish() {
 
     const cr = Object.assign({}, c, { repo });
     const file = slugFileName(rawName) + '.html';
-    const path = ghFilePath(c, file);
+    const path = ghExamPath(c, khoi, file);
     const url = ghPagesUrl(cr, path);
     const apiPath = `${ghRepoPath(cr)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
 
@@ -2196,7 +2243,7 @@ async function confirmPublish() {
             ...(sha ? { sha } : {})
         });
         const entry = { path, url, sha: res.content && res.content.sha, repo: `${c.owner}/${repo}`, branch: c.branch,
-            title: `${rawName} (${meta.subject} · ${meta.minutes} phút · Lần ${meta.round})`, classes: meta.classes.join(', '), time: Date.now() };
+            title: `${rawName} (${meta.subject} · Khối ${khoi} · ${meta.minutes} phút · Lần ${meta.round})`, classes: meta.classes.join(', '), time: Date.now() };
         setPublished([entry, ...getPublished().filter(p => !(p.repo === entry.repo && p.path === entry.path))]);
         renderPublishedList();
         await waitForPages(url);
@@ -2364,23 +2411,34 @@ function openBatchPublish(ids) {
     document.getElementById('bpRows').innerHTML = exams.map((e, i) => {
         const f = fieldsPerRow(e);
         const subject = GH_SUBJECTS.includes(e.subject) && c.repos[e.subject] ? e.subject : '';
-        return `<div class="bp-row" data-exam="${e.id}">
+        const khoi = e.khoi || inferKhoi(e.grade);
+        return `<div class="bp-row" data-exam="${e.id}" data-subject="${esc(e.subject || '')}">
             <div class="bp-title">${esc(e.title || 'Đề không tên')} <span class="bp-meta">${esc(e.subject || '')} · ${e.numQuestions || e.data.length} câu</span></div>
             <div class="bp-grid">
-                <label class="bp-wide">Tên đề<input type="text" class="form-control bp-name" value="${esc(`${e.subject || 'Đề'} ${f.minutes} phút Lần ${f.round}`)}" autocomplete="off"></label>
+                <label class="bp-wide">Tên đề<input type="text" class="form-control bp-name" data-auto="1" value="${esc(bpDefaultName(e.subject, khoi, f.minutes, f.round))}" autocomplete="off"></label>
                 <label class="bp-wide">Kho lưu trữ (môn)<select class="form-control bp-repo"><option value="">— chọn kho —</option>${bpRepoOptions(c, subject)}</select></label>
+                <label>Khối<select class="form-control bp-khoi">${khoiOptionsHtml(khoi)}</select></label>
                 <label>Thời gian<select class="form-control bp-min" data-v="${f.minutes}">${minOpts}</select></label>
                 <label>Lần kiểm tra<select class="form-control bp-round" data-v="${f.round}">${roundOpts}</select></label>
                 <label>Số lần tối đa<select class="form-control bp-limit" data-v="${f.limit}">${limitOpts}</select></label>
-                <label>Lớp áp dụng<input type="text" class="form-control bp-classes" value="${esc(e.grade || '')}" autocomplete="off"></label>
+                <label class="bp-full">Lớp áp dụng<input type="text" class="form-control bp-classes" value="${esc(e.grade || '')}" autocomplete="off"></label>
             </div>
             <div class="bp-link"></div>
             <div class="bp-status"></div>
         </div>`;
     }).join('');
     document.querySelectorAll('#bpRows select[data-v]').forEach(sel => { sel.value = sel.dataset.v; });
-    document.querySelectorAll('#bpRows .bp-row').forEach(row => row.addEventListener('input', () => bpUpdatePreview(row)));
-    document.querySelectorAll('#bpRows .bp-row').forEach(row => row.addEventListener('change', () => bpUpdatePreview(row)));
+    document.querySelectorAll('#bpRows .bp-row').forEach(row => {
+        row.querySelector('.bp-name').addEventListener('input', ev => { ev.target.dataset.auto = ''; });
+        row.addEventListener('input', () => bpUpdatePreview(row));
+        row.addEventListener('change', ev => {
+            const nameEl = row.querySelector('.bp-name');
+            if (nameEl.dataset.auto === '1' && ev.target.matches('.bp-khoi, .bp-min, .bp-round')) {
+                nameEl.value = bpDefaultName(row.dataset.subject, row.querySelector('.bp-khoi').value, row.querySelector('.bp-min').value, row.querySelector('.bp-round').value);
+            }
+            bpUpdatePreview(row);
+        });
+    });
     document.querySelectorAll('#bpRows .bp-row').forEach(bpUpdatePreview);
 
     document.getElementById('bpTitle').innerText = exams.length === 1 ? 'Đăng 1 đề lên GitHub' : `Đăng ${exams.length} đề lên GitHub`;
@@ -2397,6 +2455,10 @@ function closeBatchPublish() {
     renderExamsTable();
 }
 
+function bpDefaultName(subject, khoi, minutes, round) {
+    return `${subject || 'Đề'}${khoi ? ' khối ' + khoi : ''} ${minutes} phút Lần ${round}`;
+}
+
 function bpSetAllRepo() {
     const v = document.getElementById('bpAllRepo').value;
     if (!v) return;
@@ -2408,7 +2470,7 @@ function bpUpdatePreview(row) {
     const c = getGithubConfig();
     const repo = c.repos[row.querySelector('.bp-repo').value];
     const file = slugFileName(row.querySelector('.bp-name').value) + '.html';
-    row.querySelector('.bp-link').innerText = repo ? 'Link sẽ là: ' + ghPagesUrl({ owner: c.owner, repo }, ghFilePath(c, file)) : 'Chưa chọn kho lưu trữ.';
+    row.querySelector('.bp-link').innerText = repo ? 'Link sẽ là: ' + ghPagesUrl({ owner: c.owner, repo }, ghExamPath(c, row.querySelector('.bp-khoi').value, file)) : 'Chưa chọn kho lưu trữ.';
 }
 
 function bpSetStatus(row, html) { row.querySelector('.bp-status').innerHTML = html; }
@@ -2425,10 +2487,10 @@ async function bpCopy(btn) {
 function bpQr(btn) { openPublishModal('Link bài kiểm tra:', btn.dataset.url, 'var(--c-green)'); }
 
 // Tải một file đề lên đúng kho; trả về thông tin file (exists = trùng tên và chưa cho ghi đè)
-async function ghUploadExam(c, repo, rawName, html, overwrite) {
+async function ghUploadExam(c, repo, rawName, html, overwrite, khoi) {
     const cr = Object.assign({}, c, { repo });
     const file = slugFileName(rawName) + '.html';
-    const path = ghFilePath(c, file);
+    const path = ghExamPath(c, khoi, file);
     const url = ghPagesUrl(cr, path);
     const apiPath = `${ghRepoPath(cr)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
     let sha;
@@ -2458,8 +2520,9 @@ async function bpRun() {
         const subjectKey = row.querySelector('.bp-repo').value;
         const name = row.querySelector('.bp-name').value.trim();
         bpSetStatus(row, '');
-        const err = !subjectKey ? 'Chưa chọn kho lưu trữ.' : !name ? 'Chưa đặt tên đề.' : '';
-        const key = c.repos[subjectKey] + '/' + slugFileName(name);
+        const khoi = row.querySelector('.bp-khoi').value;
+        const err = !subjectKey ? 'Chưa chọn kho lưu trữ.' : !khoi ? 'Chưa chọn Khối của đề.' : !name ? 'Chưa đặt tên đề.' : '';
+        const key = c.repos[subjectKey] + '/' + khoi + '/' + slugFileName(name);
         if (!err && seen.has(key)) { bpSetStatus(row, '<span style="color:var(--c-red);">❌ Trùng tên với đề khác trong cùng kho. Hãy đặt tên khác.</span>'); invalid = true; continue; }
         if (err) { bpSetStatus(row, `<span style="color:var(--c-red);">❌ ${err}</span>`); invalid = true; continue; }
         seen.add(key);
@@ -2467,6 +2530,7 @@ async function bpRun() {
             row, exam, name, repo: c.repos[subjectKey],
             meta: {
                 subject: (exam.subject || subjectKey).trim(),
+                khoi: parseInt(khoi, 10),
                 minutes: parseInt(row.querySelector('.bp-min').value, 10) || 45,
                 round: parseInt(row.querySelector('.bp-round').value, 10) || 1,
                 limit: parseInt(row.querySelector('.bp-limit').value, 10) || 0,
@@ -2479,6 +2543,9 @@ async function bpRun() {
     if (!items.length) return closeBatchPublish();
 
     if (!lsGet('robotWebhookUrl').trim() && !confirm('Chưa cấu hình Google Sheets: học sinh làm bài sẽ KHÔNG lưu được điểm. Vẫn đăng đề?')) return;
+
+    const lech = items.map(it => ({ it, bad: khoiMismatch(it.meta.khoi, it.meta.classes) })).filter(x => x.bad.length);
+    if (lech.length && !confirm('Lớp áp dụng không khớp Khối đã chọn:\n\n' + lech.map(x => `• ${x.it.name}: lớp ${x.bad.join(', ')} không thuộc Khối ${x.it.meta.khoi}`).join('\n') + '\n\nBấm OK để vẫn đăng, Hủy để quay lại sửa.')) return;
 
     // Cảnh báo một lần cho các đề trùng lần kiểm tra đã có bài nộp
     const warns = [];
@@ -2496,14 +2563,14 @@ async function bpRun() {
         bpSetStatus(it.row, '⏳ Đang tải lên...');
         try {
             const html = buildExamHtml(it.meta, it.exam.data);
-            const r = await ghUploadExam(c, it.repo, it.name, html, overwrite);
+            const r = await ghUploadExam(c, it.repo, it.name, html, overwrite, it.meta.khoi);
             if (r.exists) {
                 skippedExists++;
                 bpSetStatus(it.row, `<span style="color:#b45309;">⚠️ Kho <b>${esc(it.repo)}</b> đã có đề tên "${esc(r.file)}" — chưa đăng. Đặt tên khác, hoặc tick "Ghi đè nếu trùng tên".</span>`);
                 continue;
             }
-            const entry = { path: r.path, url: r.url, sha: r.sha, repo: `${c.owner}/${it.repo}`, branch: c.branch, examId: it.exam.id,
-                title: `${it.name} (${it.meta.subject} · ${it.meta.minutes} phút · Lần ${it.meta.round})`, classes: it.meta.classes.join(', '), time: Date.now() };
+            const entry = { path: r.path, url: r.url, sha: r.sha, repo: `${c.owner}/${it.repo}`, branch: c.branch, examId: it.exam.id, khoi: it.meta.khoi,
+                title: `${it.name} (${it.meta.subject} · Khối ${it.meta.khoi} · ${it.meta.minutes} phút · Lần ${it.meta.round})`, classes: it.meta.classes.join(', '), time: Date.now() };
             setPublished([entry, ...getPublished().filter(p => !(p.repo === entry.repo && p.path === entry.path))]);
             ok++;
             it.row.dataset.done = '1';

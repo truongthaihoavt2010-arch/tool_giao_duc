@@ -106,12 +106,13 @@ TOOL GIAO DUC/
 - **Từ tài liệu:** **Tạo từ tài liệu tải lên** → dán nội dung hoặc tải Word/PDF theo **file mẫu** (tải ở nút "Tải file mẫu"):
   - `Câu N:` nội dung · `A.` `B.` `C.` `D.` · `Đáp án đúng: A` (hoặc `Đúng`/`Sai`, hoặc số cho câu tính toán)
   - `Gợi ý: từ1, từ2, …` **chỉ dành cho câu điền khuyết** (danh sách từ gợi ý), đặt trước dòng Đáp án đúng.
+- Chọn **Khối (6–12)** — **bắt buộc**: chọn khối thì "Lớp áp dụng" tự điền các lớp của khối đó (từ trang Quản lý lớp học), khối được nhớ cho lần sau và được đưa vào yêu cầu gửi AI; chọn lớp không thuộc khối thì hỏi lại. Khối dùng để phân biệt đề cùng môn của các khối khi đăng lên GitHub.
 - Chọn **Thời gian làm bài**, **Lần kiểm tra (1–6)**, **Số lần làm tối đa** (mặc định không giới hạn).
 - **Khi DeepSeek hết tiền** vẫn soạn được đề: (1) **Đề của tôi › Tải HTML** để xuất lại đề đã có; (2) **tạo từ tài liệu** (không dùng AI); (3) nhập key **Groq** (có gói miễn phí) hoặc OpenRouter ở mục "AI dự phòng" — chất lượng mô hình miễn phí thấp hơn nên cần duyệt kỹ, phần này chưa thử với key thật.
 
 ### 3.7. Kho GitHub theo môn (đăng đề: chọn kho + đặt tên)
 - Mỗi môn **một kho công khai đã bật GitHub Pages** (tài khoản `truongthaihoavt2010-arch`): `kttx-toan`, `kttx-nguvan`, `kttx-tienganh`, `kttx-vatly`, `kttx-hoahoc`, `kttx-sinhhoc`, `kttx-lichsu`, `kttx-dialy`, `kttx-tinhoc` (hai kho `kttx-lichsu`, `kttx-dialy` có từ trước, 7 kho còn lại tạo ngày 05/10/2026). Kho `kttxdialy` (không có chữ `-`) là bản cũ không dùng.
-- **Cách đăng:** Xem trước đề › **Đăng lên GitHub & lấy link** › hộp thoại tự chọn kho theo môn của đề (đổi được) › **đặt tên đề** › Đăng & lấy link. Tên đề thành tên file (bỏ dấu, `_`); link dạng `https://truongthaihoavt2010-arch.github.io/kttx-tinhoc/Tin_hoc_15_phut_Lan_1.html`; đề được đặt ở thư mục gốc kho, nhánh `main`.
+- **Cách đăng:** Xem trước đề › **Đăng lên GitHub & lấy link** › hộp thoại tự chọn kho theo môn của đề (đổi được) › **đặt tên đề** › Đăng & lấy link. Tên đề thành tên file (bỏ dấu, `_`); link dạng `https://truongthaihoavt2010-arch.github.io/kttx-tinhoc/khoi6/Tin_hoc_khoi_6_15_phut_Lan_1.html`: đề nằm trong **thư mục riêng theo khối** (`khoi6/`, `khoi7/`…) của kho môn, nhánh `main` — nên đề cùng tên của các khối không đè nhau. Đề đăng trước 06/10/2026 nằm ở thư mục gốc kho (không có thư mục khối).
 - Trùng tên đề trong kho → hỏi **ghi đè** (link giữ nguyên). Danh sách "Đề đã đăng" có nút **Gỡ đề**.
 - **Đăng đề đã tạo từ trang "Đề của tôi"** (06/10/2026): nút **Đăng GitHub** ở mỗi dòng (1 đề) hoặc tick nhiều đề rồi **Đăng các đề đã chọn** (nhiều đề). Hộp thoại cho từng đề: tên đề, **kho lưu trữ (môn)**, thời gian, lần kiểm tra, số lần tối đa, lớp áp dụng; phía trên: đổi kho cho tất cả, xáo trộn, chọn tên từ danh sách, ghi đè nếu trùng tên. Đăng xong hiện link + Sao chép + Mã QR + tự báo "link đã hoạt động"; đề đã đăng có dấu **✅ Đã đăng** trong bảng. Đề được lưu kèm thời gian/lần/số lần tối đa từ lúc tạo; đề cũ thiếu các thông số này lấy theo giá trị đang chọn trên form (sửa được trong hộp thoại); đề cũ chưa lưu câu hỏi bị bỏ qua có thông báo. Cảnh báo 1 lần nếu có đề trùng "môn + thời gian + lần" đã có bài nộp.
 - File `.html` đã tải về máy: phần mềm chưa có chỗ chọn file để đăng (đưa vào kho bằng Git).
@@ -254,6 +255,7 @@ Robot Tạo Đề ──xuất / đăng GitHub──▶ Đề thi (.html / link)
 - Thay cấu hình GitHub cũ (một kho + thư mục + nhánh) bằng **tài khoản + token + 9 kho theo môn**; thêm hộp thoại đăng đề; kiểm tra 9 kho khi lưu cấu hình.
 - 06/10/2026: sửa lỗi "Lưu & kiểm tra" báo sai quyền ghi (token fine-grained luôn đọc được kho công khai → kiểm tra bằng yêu cầu ghi bỏ trống: 422 = có quyền, 403/404 = thiếu); token đúng cho 9 kho `kttx-…` (Contents: Read and write), **không** cấp quyền cho kho mã nguồn `tool_giao_duc`.
 - 06/10/2026: thêm đăng **một hoặc nhiều đề đã tạo** từ "Đề của tôi" (xem mục 3.7); kiểm thử thật với 2 kho.
+- 06/10/2026: thêm mục **Khối (6–12)** khi tạo đề; đề đăng vào thư mục `khoiN/` trong kho môn; tên đề mặc định có khối; cảnh báo lớp không thuộc khối; cảnh báo trùng lần kiểm tra chỉ tính cùng khối (theo số đầu của tên lớp); đề cũ tự đoán khối từ tên lớp (lẫn nhiều khối thì bắt chọn). Kiểm thử thật: 2 đề cùng tên Khối 6 và 7 trong một kho không đè nhau.
 
 ### Giai đoạn 6 — Hoàn thiện hồ sơ SKKN (01/10/2026) · `8ba053a`, `47c90b0`
 - Viết lại `SO_TAY_DU_AN.md` đầy đủ; viết `KE_HOACH_VIET_DU_AN.md` (14 kế hoạch đã thực hiện, 12 quyết định thiết kế, bài học).

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Robot - Tạo Đề Thông Minh</title>
-    <link rel="stylesheet" href="style.css?v=9">
+    <link rel="stylesheet" href="style.css?v=10">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -180,6 +180,12 @@
                         </div>
                     </div>
                     <div>
+                        <label style="font-size: 13px; font-weight: 500; margin-bottom: 8px; display:block; color: var(--text-muted);">Loại kiểm tra</label>
+                        <select id="examType" onchange="lsSet('robotExamType', this.value)" title="Phân biệt các bài cùng thời gian làm bài (ví dụ cùng 15 phút: thường xuyên và giữa kỳ)" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: white; width: 140px; margin-bottom: 12px;">
+                            <option value="">— chọn loại —</option>
+                            <option>Thường xuyên</option><option>Giữa kỳ I</option><option>Giữa kỳ II</option>
+                            <option>Cuối kỳ I</option><option>Cuối kỳ II</option><option>Khảo sát</option><option>Ôn tập</option>
+                        </select>
                         <label style="font-size: 13px; font-weight: 500; margin-bottom: 12px; display:block; color: var(--text-muted);">Thời gian làm bài</label>
                         <select id="examTime" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: white; width: 120px;">
                             <option value="5">5 phút</option>
@@ -462,7 +468,7 @@
                     </ol>
                     <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;"><i class="fa-solid fa-key"></i> Mã đã có sẵn <strong>mã đọc dữ liệu</strong> của bạn (ô "Mã đọc dữ liệu" ở Bước 2): chỉ ai có mã mới xem được điểm học sinh. Mỗi năm học, điểm được ghi vào một tab riêng (ví dụ "2026-2027").</p>
                     <textarea id="gasCode" readonly spellcheck="false" style="width: 100%; height: 260px; font-family: monospace; font-size: 12px; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: #f8f9fa;">/**
- * ROBOT TẠO ĐỀ TRẮC NGHIỆM - GOOGLE APPS SCRIPT (phiên bản 3)
+ * ROBOT TẠO ĐỀ TRẮC NGHIỆM - GOOGLE APPS SCRIPT (phiên bản 4)
  * Copy mã này từ trang "Google Sheets" của phần mềm Robot Tạo Đề: ở đó MÃ ĐỌC DỮ LIỆU
  * đã được điền sẵn cho bạn.
  *
@@ -493,7 +499,7 @@ function kiemTraCaiDat() {
 }
 
 var READ_KEY = ""; // MÃ ĐỌC DỮ LIỆU — chỉ ai có mã này mới xem được điểm (để trống = ai cũng xem được)
-var SCRIPT_VERSION = 3;
+var SCRIPT_VERSION = 4;
 
 var HEADERS = ["STT", "HỌ TÊN", "MÔN", "HÌNH THỨC KT", "LỚP", "THỜI GIAN NỘP", "ĐIỂM SỐ", "MÃ BÀI NỘP"];
 var TZ = "GMT+7";
@@ -519,9 +525,24 @@ function schoolYearOf_(d) {
   return d.getMonth() &gt;= 8 ? y + "-" + (y + 1) : (y - 1) + "-" + y;
 }
 
-// Chuẩn hóa hình thức: "15 Phút - Lần 1" (+ " - Tối đa 5 lần")
+// Loại kiểm tra (phân biệt các bài cùng thời gian làm bài). Chỉ nhận các loại hợp lệ, bỏ qua chữ lạ.
+function detectType_(v) {
+  var t = String(v == null ? "" : v).toLowerCase();
+  if (/thường\s*xuyên/.test(t)) return "Thường xuyên";
+  var m = t.match(/(giữa|cuối)\s*kỳ(?:\s+(ii|i|2|1)(?=\s|$|-))?/);
+  if (m) {
+    var name = m[1] === "giữa" ? "Giữa kỳ" : "Cuối kỳ";
+    return m[2] ? name + " " + (m[2] === "ii" || m[2] === "2" ? "II" : "I") : name;
+  }
+  if (/khảo\s*sát/.test(t)) return "Khảo sát";
+  if (/ôn\s*tập/.test(t)) return "Ôn tập";
+  return "";
+}
+
+// Chuẩn hóa hình thức: "Giữa kỳ I - 15 Phút - Lần 1" (+ " - Tối đa 5 lần"); không có loại: "15 Phút - Lần 1"
 function hinhThuc_(data) {
   var raw = String(data.examTime == null ? "" : data.examTime);
+  var type = detectType_(data.type) || detectType_(raw);
   var minutes = parseInt(data.minutes, 10);
   var round = parseInt(data.round, 10);
   var limit = parseInt(data.limit, 10);
@@ -530,7 +551,7 @@ function hinhThuc_(data) {
   if (isNaN(round) &amp;&amp; (m = raw.match(/lần\s*(\d+)/i))) round = parseInt(m[1], 10);
   if (isNaN(limit) &amp;&amp; (m = raw.match(/tối\s*đa\s*(\d+)/i))) limit = parseInt(m[1], 10);
   if (isNaN(minutes)) return safeText_(raw) + " Phút"; // Không nhận ra: giữ như cũ
-  var s = minutes + " Phút - Lần " + (isNaN(round) ? 1 : round);
+  var s = (type ? type + " - " : "") + minutes + " Phút - Lần " + (isNaN(round) ? 1 : round);
   if (limit &gt; 0) s += " - Tối đa " + limit + " lần";
   return s;
 }
@@ -900,11 +921,15 @@ function saoLuu() {
             </div>
             <div class="form-group">
                 <label>Khối</label>
-                <select id="pubKhoi" class="form-control" onchange="updatePublishPreview()"></select>
+                <select id="pubKhoi" class="form-control" onchange="pubAutoName()"></select>
+            </div>
+            <div class="form-group">
+                <label>Loại kiểm tra</label>
+                <select id="pubType" class="form-control" onchange="pubAutoName()"></select>
             </div>
             <div class="form-group">
                 <label>Tên đề</label>
-                <input type="text" id="pubName" class="form-control" placeholder="vd: Tin học 15 phút Lần 1" oninput="updatePublishPreview()" onkeydown="if(event.key==='Enter')confirmPublish()" autocomplete="off">
+                <input type="text" id="pubName" class="form-control" placeholder="vd: Tin học 15 phút Lần 1" oninput="this.dataset.auto=''; updatePublishPreview()" onkeydown="if(event.key==='Enter')confirmPublish()" autocomplete="off">
                 <div id="pubLinkPreview" style="font-size: 12px; color: var(--text-muted); margin-top: 6px; word-break: break-all;"></div>
             </div>
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top: 16px;">
@@ -1038,8 +1063,8 @@ function saoLuu() {
         <div class="loading-subtext" style="color:var(--text-muted); font-size:14px; margin-top:10px;">Đang thiết lập ma trận đề và xuất dữ liệu.</div>
     </div>
 
-    <script src="../shared/scores.js?v=1"></script>
+    <script src="../shared/scores.js?v=2"></script>
     <script src="template_data.js"></script>
-    <script src="app.js?v=12"></script>
+    <script src="app.js?v=13"></script>
 </body>
 </html>

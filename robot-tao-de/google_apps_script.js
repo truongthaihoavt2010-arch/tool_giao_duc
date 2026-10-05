@@ -1,5 +1,5 @@
 /**
- * ROBOT TẠO ĐỀ TRẮC NGHIỆM - GOOGLE APPS SCRIPT (phiên bản 3)
+ * ROBOT TẠO ĐỀ TRẮC NGHIỆM - GOOGLE APPS SCRIPT (phiên bản 4)
  * Copy mã này từ trang "Google Sheets" của phần mềm Robot Tạo Đề: ở đó MÃ ĐỌC DỮ LIỆU
  * đã được điền sẵn cho bạn.
  *
@@ -30,7 +30,7 @@ function kiemTraCaiDat() {
 }
 
 var READ_KEY = ""; // MÃ ĐỌC DỮ LIỆU — chỉ ai có mã này mới xem được điểm (để trống = ai cũng xem được)
-var SCRIPT_VERSION = 3;
+var SCRIPT_VERSION = 4;
 
 var HEADERS = ["STT", "HỌ TÊN", "MÔN", "HÌNH THỨC KT", "LỚP", "THỜI GIAN NỘP", "ĐIỂM SỐ", "MÃ BÀI NỘP"];
 var TZ = "GMT+7";
@@ -56,9 +56,24 @@ function schoolYearOf_(d) {
   return d.getMonth() >= 8 ? y + "-" + (y + 1) : (y - 1) + "-" + y;
 }
 
-// Chuẩn hóa hình thức: "15 Phút - Lần 1" (+ " - Tối đa 5 lần")
+// Loại kiểm tra (phân biệt các bài cùng thời gian làm bài). Chỉ nhận các loại hợp lệ, bỏ qua chữ lạ.
+function detectType_(v) {
+  var t = String(v == null ? "" : v).toLowerCase();
+  if (/thường\s*xuyên/.test(t)) return "Thường xuyên";
+  var m = t.match(/(giữa|cuối)\s*kỳ(?:\s+(ii|i|2|1)(?=\s|$|-))?/);
+  if (m) {
+    var name = m[1] === "giữa" ? "Giữa kỳ" : "Cuối kỳ";
+    return m[2] ? name + " " + (m[2] === "ii" || m[2] === "2" ? "II" : "I") : name;
+  }
+  if (/khảo\s*sát/.test(t)) return "Khảo sát";
+  if (/ôn\s*tập/.test(t)) return "Ôn tập";
+  return "";
+}
+
+// Chuẩn hóa hình thức: "Giữa kỳ I - 15 Phút - Lần 1" (+ " - Tối đa 5 lần"); không có loại: "15 Phút - Lần 1"
 function hinhThuc_(data) {
   var raw = String(data.examTime == null ? "" : data.examTime);
+  var type = detectType_(data.type) || detectType_(raw);
   var minutes = parseInt(data.minutes, 10);
   var round = parseInt(data.round, 10);
   var limit = parseInt(data.limit, 10);
@@ -67,7 +82,7 @@ function hinhThuc_(data) {
   if (isNaN(round) && (m = raw.match(/lần\s*(\d+)/i))) round = parseInt(m[1], 10);
   if (isNaN(limit) && (m = raw.match(/tối\s*đa\s*(\d+)/i))) limit = parseInt(m[1], 10);
   if (isNaN(minutes)) return safeText_(raw) + " Phút"; // Không nhận ra: giữ như cũ
-  var s = minutes + " Phút - Lần " + (isNaN(round) ? 1 : round);
+  var s = (type ? type + " - " : "") + minutes + " Phút - Lần " + (isNaN(round) ? 1 : round);
   if (limit > 0) s += " - Tối đa " + limit + " lần";
   return s;
 }

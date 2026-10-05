@@ -53,7 +53,7 @@ TOOL GIAO DUC/
 │   ├── index.html              Giao diện giáo viên
 │   ├── app.js                  Logic: AI, đọc tài liệu, xuất/đăng đề, đọc Google Sheets
 │   ├── style.css
-│   ├── google_apps_script.js   NGUỒN DUY NHẤT của mã Apps Script (phiên bản 3)
+│   ├── google_apps_script.js   NGUỒN DUY NHẤT của mã Apps Script (phiên bản 4)
 │   ├── template_test.html      NGUỒN giao diện làm bài của học sinh
 │   ├── template_data.js        (tự sinh) Base64 của template — KHÔNG sửa tay
 │   └── build.py                Sinh template_data.js + chép mã Apps Script vào trang cài đặt
@@ -162,10 +162,11 @@ Robot Tạo Đề ──xuất / đăng GitHub──▶ Đề thi (.html / link)
 ## 5. 📐 QUY TẮC NGHIỆP VỤ
 
 ### 5.1. Hình thức & lần kiểm tra
-- **Hình thức** = thời gian làm bài + **lần kiểm tra (Lần 1–6)**, ví dụ `15 Phút - Lần 1`.
+- **Hình thức** = **loại kiểm tra** + thời gian làm bài + **lần kiểm tra (Lần 1–6)**, ví dụ `Giữa kỳ I - 15 Phút - Lần 1`.
+- **Loại kiểm tra** (06/10/2026): *Thường xuyên · Giữa kỳ I/II · Cuối kỳ I/II · Khảo sát · Ôn tập* — phân biệt các bài cùng thời gian làm bài (vd cùng 15 phút: thường xuyên và giữa kỳ). Chọn ở form tạo đề (**bắt buộc**, nhớ lần trước), sửa được khi đăng đề; hiện trên đề thi ("Môn: Tin học · Giữa kỳ I · 15 phút · Lần 1") và ghi vào cột HÌNH THỨC KT. Điểm các loại **không bị gộp**; cảnh báo trùng lần kiểm tra cũng tính theo loại. Dữ liệu/đề cũ không ghi loại giữ nguyên là hình thức riêng. **Cần Apps Script bản 4**: bản 3 trở xuống bỏ qua loại (phần mềm cảnh báo khi kiểm tra kết nối và khi đăng đề).
 - **Dữ liệu cũ không ghi lần = Lần 1.**
 - **Giới hạn số lần** (tùy chọn): ghi kèm `… - Tối đa 5 lần`. App **không chặn** học sinh làm bài, chỉ **không tính** các lần vượt giới hạn.
-- Đề gửi `examTime = "Lần 2 - Tối đa 5 lần - 15"` (để Apps Script cũ tự nối " Phút" vẫn đọc đúng) kèm `minutes`, `round`, `limit`; Apps Script v3 ghi gọn `15 Phút - Lần 2 - Tối đa 5 lần`.
+- Đề gửi `examTime = "Lần 2 - Tối đa 5 lần - 15"` (để Apps Script cũ tự nối " Phút" vẫn đọc đúng) kèm `minutes`, `round`, `limit`, `type`; Apps Script v3 ghi gọn `15 Phút - Lần 2 - Tối đa 5 lần`; **v4** thêm loại: `Giữa kỳ I - 15 Phút - Lần 2 - Tối đa 5 lần` (chỉ nhận các loại hợp lệ, chữ lạ bị bỏ).
 
 ### 5.2. Điểm được tính
 - Nhóm theo **họ tên + lớp + môn + hình thức + lần + năm học** → lấy **ĐIỂM CAO NHẤT** trong N lần làm đầu tiên.
@@ -186,7 +187,7 @@ Robot Tạo Đề ──xuất / đăng GitHub──▶ Đề thi (.html / link)
 
 ---
 
-## 6. 📊 GOOGLE SHEETS & APPS SCRIPT (PHIÊN BẢN 3)
+## 6. 📊 GOOGLE SHEETS & APPS SCRIPT (PHIÊN BẢN 4)
 
 - **Cột dữ liệu:** STT · HỌ TÊN · MÔN · HÌNH THỨC KT · LỚP · THỜI GIAN NỘP · ĐIỂM SỐ · MÃ BÀI NỘP.
 - **Mỗi năm học một tab** (`2026-2027`, tự tạo **ở cuối** khi có bài nộp đầu tiên). Tab cũ (vd "Trang tính1") vẫn được đọc theo ngày nộp; thứ tự tab không quan trọng.
@@ -250,11 +251,12 @@ Robot Tạo Đề ──xuất / đăng GitHub──▶ Đề thi (.html / link)
 - `b9dc2ca` **Kiểm tra toàn bộ tính năng (không nâng cấp):** sửa lỗi đọc file mẫu Word (dòng tiêu đề "Phần 3 … "Gợi ý:" …" bị hiểu nhầm); sửa ngày trong tên file sao lưu; thêm `tests/test_parse_local.js`.
 - Chốt: **bản dùng thử thi SKKN — đóng băng tính năng.**
 
-### Giai đoạn 7 — Kho GitHub theo môn (05–06/10/2026)
+### Giai đoạn 7 — Kho GitHub theo môn, Khối, Loại kiểm tra (05–06/10/2026)
 - Theo yêu cầu của tác giả: tạo sẵn kho cho từng môn học (7 kho mới `kttx-*`, bật Pages; giữ 2 kho cũ), phần mềm **chọn kho theo môn + chỉ đặt tên đề**, đăng xong ra link + mã QR ngay. Đây là thay đổi tính năng theo yêu cầu trực tiếp của tác giả (ngoại lệ so với quyết định đóng băng).
 - Thay cấu hình GitHub cũ (một kho + thư mục + nhánh) bằng **tài khoản + token + 9 kho theo môn**; thêm hộp thoại đăng đề; kiểm tra 9 kho khi lưu cấu hình.
 - 06/10/2026: sửa lỗi "Lưu & kiểm tra" báo sai quyền ghi (token fine-grained luôn đọc được kho công khai → kiểm tra bằng yêu cầu ghi bỏ trống: 422 = có quyền, 403/404 = thiếu); token đúng cho 9 kho `kttx-…` (Contents: Read and write), **không** cấp quyền cho kho mã nguồn `tool_giao_duc`.
 - 06/10/2026: thêm đăng **một hoặc nhiều đề đã tạo** từ "Đề của tôi" (xem mục 3.7); kiểm thử thật với 2 kho.
+- 06/10/2026: thêm **Loại kiểm tra** (Thường xuyên, Giữa kỳ I/II, Cuối kỳ I/II, Khảo sát, Ôn tập) để phân biệt bài cùng thời gian làm bài; Apps Script **v4**; bộ xử lý điểm gom nhóm theo loại; cảnh báo khi Apps Script chưa lên bản 4; thêm 13 test (39 + 29). **Giáo viên cần dán mã Apps Script v4 và triển khai phiên bản mới**.
 - 06/10/2026: thêm mục **Khối (6–12)** khi tạo đề; đề đăng vào thư mục `khoiN/` trong kho môn; tên đề mặc định có khối; cảnh báo lớp không thuộc khối; cảnh báo trùng lần kiểm tra chỉ tính cùng khối (theo số đầu của tên lớp); đề cũ tự đoán khối từ tên lớp (lẫn nhiều khối thì bắt chọn). Kiểm thử thật: 2 đề cùng tên Khối 6 và 7 trong một kho không đè nhau.
 
 ### Giai đoạn 6 — Hoàn thiện hồ sơ SKKN (01/10/2026) · `8ba053a`, `47c90b0`
@@ -300,6 +302,7 @@ Robot Tạo Đề ──xuất / đăng GitHub──▶ Đề thi (.html / link)
 - **Google Sheet** "ROBOT LUU DIEM" thuộc tài khoản Google "L" (không phải `truongthaihoavt2010@gmail.com`).
 
 **Việc giáo viên cần làm:**
+- [ ] Cập nhật Apps Script lên **bản 4** (để lưu Loại kiểm tra): trang Google Sheets › Sao chép mã › dán › Triển khai › Phiên bản mới.
 - [ ] Cập nhật **lần triển khai cũ** lên v3: Quản lý các lần triển khai › chọn lần triển khai cũ › Sửa › Phiên bản mới.
 - [ ] Chạy `saoLuu`, rồi `xoaBaiNopTrung`.
 - [ ] Nạp tiền DeepSeek (hoặc nhập key Groq miễn phí) để tạo đề bằng AI.

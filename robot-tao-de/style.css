@@ -376,3 +376,5 @@ body {
 @media (max-width: 760px) { .bp-grid { grid-template-columns: 1fr 1fr; } }
 
 .bp-grid label.bp-full { grid-column: 1 / -1; }
+
+.bp-grid label.bp-span3 { grid-column: span 3; }

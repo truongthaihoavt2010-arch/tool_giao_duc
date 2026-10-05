@@ -335,6 +335,7 @@
         const ALLOWED_CLASSES = ""; // Template placeholder
         const EXAM_ROUND = 1; // Template placeholder
         const EXAM_LIMIT = 0; // Template placeholder
+        const EXAM_TYPE = ""; // Template placeholder
         const SHUFFLE = false; // Template placeholder
         const STUDENT_LISTS = {}; // Template placeholder
     </script>
@@ -417,7 +418,7 @@
         }
 
         function examRoundText() {
-            return `${EXAM_TIME} phút · Lần ${EXAM_ROUND || 1}` + (EXAM_LIMIT > 0 ? ` (tối đa ${EXAM_LIMIT} lần)` : '');
+            return `${EXAM_TYPE ? EXAM_TYPE + ' · ' : ''}${EXAM_TIME} phút · Lần ${EXAM_ROUND || 1}` + (EXAM_LIMIT > 0 ? ` (tối đa ${EXAM_LIMIT} lần)` : '');
         }
 
         // Chọn lớp có danh sách học sinh -> chọn tên trong danh sách (tránh gõ sai tên)
@@ -861,10 +862,10 @@
             let sendStatus = null;
             if (WEBHOOK_URL) {
                 // examTime dạng "Lần 1 - Tối đa 5 lần - 15": Apps Script cũ tự nối " Phút" -> vẫn đọc đúng
-                const examTimeParam = `Lần ${EXAM_ROUND || 1}` + (EXAM_LIMIT > 0 ? ` - Tối đa ${EXAM_LIMIT} lần` : '') + ` - ${EXAM_TIME}`;
+                const examTimeParam = `${EXAM_TYPE ? EXAM_TYPE + ' - ' : ''}Lần ${EXAM_ROUND || 1}` + (EXAM_LIMIT > 0 ? ` - Tối đa ${EXAM_LIMIT} lần` : '') + ` - ${EXAM_TIME}`;
                 const payload = {
                     name: studentName, subject: SUBJECT, examTime: examTimeParam,
-                    minutes: EXAM_TIME, round: EXAM_ROUND || 1, limit: EXAM_LIMIT || 0,
+                    minutes: EXAM_TIME, round: EXAM_ROUND || 1, limit: EXAM_LIMIT || 0, type: EXAM_TYPE,
                     className: className, score: scale10,
                     submissionId: Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
                 };

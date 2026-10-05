@@ -88,7 +88,7 @@ check('Không có mã -> từ chối', get({}).code, 'unauthorized');
 check('Sai mã -> từ chối', get({ key: 'sai' }).code, 'unauthorized');
 check('Đúng mã -> đọc được năm học hiện tại', get({ key: 'ma-bi-mat' }).map(r => r.name), ['LAN']);
 check('Đọc năm học trước', get({ key: 'ma-bi-mat', year: '2025-2026' }).map(r => r.name), ['HÒA']);
-check('Thông tin script', get({ key: 'ma-bi-mat', action: 'info' }), { status: 'success', version: 3, years: ['2026-2027', '2025-2026'], protected: true });
+check('Thông tin script', get({ key: 'ma-bi-mat', action: 'info' }), { status: 'success', version: 4, years: ['2026-2027', '2025-2026'], protected: true });
 
 // ---------- Ghi điểm vào tab năm học ----------
 check('Đề cũ (examTime=15)', post({ name: 'An', className: '6A1', subject: 'Tin học', examTime: '15', score: '7.50' }).status, 'success');
@@ -122,7 +122,7 @@ check('Bài nộp mới xóa bộ nhớ đệm', get({ key: 'ma-bi-mat' }).lengt
     const r = JSON.parse(t.api.doPost(undefined).t);
     check('Chạy doPost không có dữ liệu -> không ghi, không tạo tab', [r.status, t.ss.getSheets().map(s => s.name), lg.rows.length], ['error', ['Trang tính1'], 2]);
     t.api.kiemTraCaiDat();
-    check('kiemTraCaiDat chỉ báo cáo', t.logs, ['Apps Script phiên bản 3 · đã đặt mã đọc dữ liệu', 'Tab "Trang tính1": 1 bài nộp', 'Năm học có dữ liệu: 2026-2027']);
+    check('kiemTraCaiDat chỉ báo cáo', t.logs, ['Apps Script phiên bản 4 · đã đặt mã đọc dữ liệu', 'Tab "Trang tính1": 1 bài nộp', 'Năm học có dữ liệu: 2026-2027']);
 }
 
 // ---------- Script không đặt mã ----------
@@ -141,6 +141,25 @@ api.xoaBaiNopTrung();
 check('Dọn bài trùng', [legacy2.rows.length - 1, logs[0]], [2, 'Đã xóa 1 bài nộp trùng.']);
 api.saoLuu();
 check('Sao lưu tạo bản sao', /Đã sao lưu: https:\/\/docs\.google\.com\/copy\/Sao%20l%C6%B0u/.test(logs[1]), true);
+
+// ---------- Loại kiểm tra (phiên bản 4) ----------
+{
+    const sh = makeSheet('Trang tính1', [HEAD7]);
+    const t = load('k', [sh], NOW);
+    const pt = p => JSON.parse(t.api.doPost({ parameter: p }).t);
+    const last = () => t.ss.getSheetByName('2026-2027').rows.slice(-1)[0][3];
+    pt({ name: 'A', className: '6A1', subject: 'Tin học', examTime: 'Giữa kỳ I - Lần 1 - 15', minutes: '15', round: '1', type: 'Giữa kỳ I', score: '8' });
+    check('Loại kiểm tra ghi vào hình thức', last(), 'Giữa kỳ I - 15 Phút - Lần 1');
+    pt({ name: 'B', className: '6A1', subject: 'Tin học', examTime: 'Thường xuyên - Lần 3 - Tối đa 2 lần - 15', minutes: '15', round: '3', limit: '2', score: '7' });
+    check('Loại lấy từ chuỗi hình thức khi không có tham số type', last(), 'Thường xuyên - 15 Phút - Lần 3 - Tối đa 2 lần');
+    pt({ name: 'C', className: '6A1', subject: 'Tin học', examTime: 'Lần 1 - 15', minutes: '15', round: '1', type: '<script>alert(1)</script>', score: '6' });
+    check('Loại lạ bị bỏ qua (chống chèn chữ)', last(), '15 Phút - Lần 1');
+    pt({ name: 'D', className: '6A1', subject: 'Tin học', examTime: 'Lần 1 - 15', minutes: '15', round: '1', score: '5' });
+    check('Đề cũ không gửi loại: như trước', last(), '15 Phút - Lần 1');
+    const r1 = pt({ name: 'E', className: '6A1', subject: 'Tin học', examTime: 'Giữa kỳ I - Lần 1 - 15', minutes: '15', round: '1', type: 'Giữa kỳ I', score: '9' });
+    const r2 = pt({ name: 'E', className: '6A1', subject: 'Tin học', examTime: 'Thường xuyên - Lần 1 - 15', minutes: '15', round: '1', type: 'Thường xuyên', score: '9' });
+    check('Cùng tên, điểm, 15 phút nhưng khác loại: không bị coi là bài trùng', [r1.duplicate, r2.duplicate], [undefined, undefined]);
+}
 
 console.log(`\n📋 KẾT QUẢ: ${pass}/${pass + fail} PASS, ${fail} FAIL`);
 process.exit(fail ? 1 : 0);

@@ -22,6 +22,19 @@ check('Tham số gửi đi', S.buildExamTimeParam(15, 2, 0), 'Lần 2 - 15');
 check('Tham số gửi đi có giới hạn', S.buildExamTimeParam(15, 2, 5), 'Lần 2 - Tối đa 5 lần - 15');
 check('Vòng lại: tham số + " Phút" (Apps Script cũ)', h(S.buildExamTimeParam(15, 2, 5) + ' Phút'), ['15 Phút - Lần 2', 5]);
 
+// ---------- Loại kiểm tra ----------
+check('Loại: Thường xuyên', h('Thường xuyên - 15 Phút - Lần 1'), ['Thường xuyên - 15 Phút - Lần 1', 0]);
+check('Loại: Giữa kỳ I', h('Giữa kỳ I - 15 Phút - Lần 1'), ['Giữa kỳ I - 15 Phút - Lần 1', 0]);
+check('Loại: Giữa kỳ II không bị nhầm với I', h('Giữa kỳ II - 15 Phút - Lần 1'), ['Giữa kỳ II - 15 Phút - Lần 1', 0]);
+check('Loại: Cuối kỳ + giới hạn', h('Cuối kỳ I - 45 Phút - Lần 2 - Tối đa 3 lần'), ['Cuối kỳ I - 45 Phút - Lần 2', 3]);
+check('Loại gửi từ đề (Apps Script cũ nối " Phút")', h('Giữa kỳ I - Lần 2 - 15 Phút'), ['Giữa kỳ I - 15 Phút - Lần 2', 0]);
+check('Dữ liệu cũ không có loại', S.parseHinhThuc('15 Phút - Lần 1').type, '');
+check('Nhận dạng loại', ['Khảo sát đầu năm', 'ôn tập', 'GIỮA KỲ 2', 'cuối kỳ', 'abc'].map(S.detectType), ['Khảo sát', 'Ôn tập', 'Giữa kỳ II', 'Cuối kỳ', '']);
+check('Tham số gửi đi có loại', S.buildExamTimeParam(15, 2, 0, 'Giữa kỳ I'), 'Giữa kỳ I - Lần 2 - 15');
+check('Tham số gửi đi không loại (như cũ)', S.buildExamTimeParam(15, 2, 5), 'Lần 2 - Tối đa 5 lần - 15');
+check('Vòng lại có loại + " Phút"', h(S.buildExamTimeParam(15, 2, 5, 'Giữa kỳ II') + ' Phút'), ['Giữa kỳ II - 15 Phút - Lần 2', 5]);
+check('hinhThucBase', [S.hinhThucBase('Giữa kỳ I', 15), S.hinhThucBase('', 15)], ['Giữa kỳ I - 15 Phút', '15 Phút']);
+
 // ---------- Thời gian, năm học ----------
 check('Ngày dd/MM/yyyy', new Date(S.parseTime('05/09/2026 07:08:09')).getMonth(), 8);
 check('Năm học tháng 9', S.schoolYearOf(new Date(2026, 8, 1).getTime()), '2026-2027');
@@ -56,6 +69,11 @@ check('Hoa thường/khoảng trắng = cùng HS; bỏ dấu = HS khác', r.best
 
 r = S.process([row('HS1', '6A1', 6, 0), row('HS1', '6A2', 8, 10), row('HS1', '6A1', 9, 20, '15 Phút - Lần 1', 'Toán học')]);
 check('Khác lớp / khác môn = kết quả riêng', r.best.length, 3);
+
+r = S.process([row('HS1', '6A1', 6, 0, 'Thường xuyên - 15 Phút - Lần 1'), row('HS1', '6A1', 9, 10, 'Giữa kỳ I - 15 Phút - Lần 1'), row('HS1', '6A1', 7, 20, '15 Phút - Lần 1')]);
+check('Cùng 15 phút, Lần 1: khác loại -> KHÔNG gộp điểm', r.best.map(b => [b.hinhThuc, b.score]).sort(), [['15 Phút - Lần 1', 7], ['Giữa kỳ I - 15 Phút - Lần 1', 9], ['Thường xuyên - 15 Phút - Lần 1', 6]]);
+r = S.process([row('HS1', '6A1', 6, 0, 'Giữa kỳ I - 15 Phút - Lần 1'), row('HS1', '6A1', 8, 10, 'Giữa kỳ I - Lần 1 - 15 Phút'), row('HS1', '6A1', 5, 20, 'Giữa kỳ II - 15 Phút - Lần 1')]);
+check('Cùng loại (dạng ghi khác nhau) gộp lấy điểm cao nhất; Giữa kỳ II tách riêng', r.best.map(b => [b.hinhThuc, b.score, b.attempts]).sort(), [['Giữa kỳ I - 15 Phút - Lần 1', 8, 2], ['Giữa kỳ II - 15 Phút - Lần 1', 5, 1]]);
 
 const june = { name: 'HS1', className: '6A1', subject: 'Tin học', examTime: '15 Phút', score: 10, date: '2026-06-19T08:29:04.000Z' };
 r = S.process([june, row('HS1', '6A1', 6, 0)]);

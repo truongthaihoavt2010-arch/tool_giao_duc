@@ -135,7 +135,7 @@ function renderExamsTable() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><input type="checkbox" class="row-checkbox" value="${exam.id}"></td>
-                <td style="font-weight:600; color:var(--primary)">${esc(exam.title || 'Chưa đặt tên')}${publishedBadge(exam.id)}</td>
+                <td style="font-weight:600; color:var(--primary)">${esc(exam.title || 'Chưa đặt tên')}${exam.type ? `<div style="font-size:12px; font-weight:500; color:var(--text-muted);">${esc(exam.type)} · ${exam.minutes || ''} phút · Lần ${exam.round || 1}</div>` : ''}${publishedBadge(exam.id)}</td>
                 <td>${esc(exam.subject || '-')}</td>
                 <td>${(exam.khoi || inferKhoi(exam.grade)) ? `<b>Khối ${esc(exam.khoi || inferKhoi(exam.grade))}</b><div style="font-size:12px; color:var(--text-muted);">${esc(exam.grade || '')}</div>` : esc(exam.grade || '-')}</td>
                 <td>${exam.numQuestions || 0}</td>
@@ -814,11 +814,13 @@ async function saveSheetConfigAndCheck() {
     setSheetStatus('Đang kiểm tra kết nối...', 'var(--text-muted)');
     try {
         const info = await fetchSheetJson({ action: 'info' }, n => setSheetStatus(`Kết nối chưa được, đang thử lại (lần ${n}/3)...`, 'orange'));
+        lsSet('robotGasVersion', Array.isArray(info) ? '1' : String((info && info.version) || ''));
         if (Array.isArray(info)) {
             setSheetStatus('⚠️ Kết nối được, nhưng Google đang chạy Apps Script CŨ: điểm chưa được bảo vệ bằng mã và chưa chia theo năm học. Hãy dán mã ở Bước 1 rồi triển khai "Phiên bản mới".', 'orange');
         } else if (info && info.status === 'success') {
             const prot = info.protected ? 'đã bảo vệ bằng mã đọc' : '⚠️ CHƯA đặt mã đọc (ai có URL đều xem được điểm)';
-            setSheetStatus(`✅ Kết nối thành công · Apps Script phiên bản ${info.version} · ${prot} · Năm học có dữ liệu: ${(info.years || []).join(', ')}`, info.protected ? 'var(--c-green)' : 'orange');
+            const oldVer = info.version < 4 ? ` · ⚠️ Cần cập nhật Apps Script lên bản 4 để lưu "Loại kiểm tra" (dán mã mới, Triển khai › Phiên bản mới)` : '';
+            setSheetStatus(`✅ Kết nối thành công · Apps Script phiên bản ${info.version} · ${prot} · Năm học có dữ liệu: ${(info.years || []).join(', ')}${oldVer}`, info.protected && !oldVer ? 'var(--c-green)' : 'orange');
         } else {
             throw new Error('Phản hồi không đúng. Kiểm tra lại URL.');
         }
@@ -1299,6 +1301,8 @@ async function callAI(messagesArr, isChat = false) {
 }
 
 async function startGeneration(isAutoMode = false) {
+    const typeEl = document.getElementById('examType');
+    if (typeEl && !typeEl.value) { alert('Vui lòng chọn Loại kiểm tra (Thường xuyên, Giữa kỳ, Cuối kỳ...) để phân biệt các bài cùng thời gian làm bài.'); typeEl.focus(); return; }
     const khoiEl = document.getElementById('khoi');
     if (khoiEl && !khoiEl.value) { alert('Vui lòng chọn Khối (6 – 12) cho đề để phân biệt đề của từng khối khi đăng lên GitHub.'); khoiEl.focus(); return; }
     if (khoiEl) {
@@ -1447,7 +1451,8 @@ async function startGeneration(isAutoMode = false) {
                 minutes: parseInt(document.getElementById('examTime')?.value, 10) || 45,
                 round: parseInt(document.getElementById('examRound')?.value, 10) || 1,
                 limit: parseInt(document.getElementById('examLimit')?.value, 10) || 0,
-                khoi: parseInt(document.getElementById('khoi')?.value, 10) || 0
+                khoi: parseInt(document.getElementById('khoi')?.value, 10) || 0,
+                type: document.getElementById('examType')?.value || ''
             });
             
             document.getElementById('loadingOverlay').classList.remove('active');
@@ -1714,6 +1719,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initGithubSettings();
     const savedKhoi = lsGet('robotKhoi');
     if (savedKhoi && document.getElementById('khoi')) { document.getElementById('khoi').value = savedKhoi; onKhoiChange(); }
+    const savedType = lsGet('robotExamType');
+    if (savedType && document.getElementById('examType')) document.getElementById('examType').value = savedType;
     
     updateTotalQuestions();
     renderClassesOptions();
@@ -1874,6 +1881,16 @@ function khoiMismatch(khoi, classes) {
 // Đề đăng vào thư mục riêng theo khối trong kho môn học: khoi6/Ten_de.html (tránh trùng đề giữa các khối)
 const ghExamPath = (c, khoi, file) => [c.folder.replace(/^\/+|\/+$/g, ''), khoi ? 'khoi' + khoi : '', file].filter(Boolean).join('/');
 const KHOI_OPTIONS = [6, 7, 8, 9, 10, 11, 12];
+// Loại kiểm tra (phân biệt bài cùng thời gian làm bài): danh sách dùng chung với bộ xử lý điểm
+const typeOptionsHtml = (selected, blankLabel = '— chọn loại —') => `<option value="">${blankLabel}</option>` +
+    EduScores.EXAM_TYPES.map(t => `<option value="${esc(t)}" ${t === selected ? 'selected' : ''}>${esc(t)}</option>`).join('');
+
+// Apps Script cũ (dưới bản 4) bỏ qua "Loại kiểm tra" -> điểm các loại cùng thời gian vẫn bị gộp trong Sheet
+async function confirmGasSupportsType(hasType) {
+    const v = parseInt(lsGet('robotGasVersion', '0'), 10);
+    if (!hasType || !v || v >= 4) return true;
+    return confirm(`Google đang chạy Apps Script phiên bản ${v}, chưa lưu được "Loại kiểm tra" (Giữa kỳ, Thường xuyên...). Điểm các loại cùng thời gian làm bài sẽ vẫn bị gộp trong Google Sheets.\n\nNên cập nhật Apps Script lên bản 4 trước (trang "Google Sheets" › Bước 1: dán mã mới › Triển khai › Phiên bản mới).\n\nBấm OK để vẫn tiếp tục, Hủy để quay lại.`);
+}
 const khoiOptionsHtml = (selected, withBlank = true) => (withBlank ? `<option value="">— chọn khối —</option>` : '') +
     KHOI_OPTIONS.map(k => `<option value="${k}" ${String(selected) === String(k) ? 'selected' : ''}>Khối ${k}</option>`).join('');
 
@@ -1896,7 +1913,8 @@ function getExamMeta() {
         round: parseInt(document.getElementById('examRound')?.value, 10) || 1,
         limit: parseInt(document.getElementById('examLimit')?.value, 10) || 0,
         classes: getExamClasses(),
-        khoi: parseInt(document.getElementById('khoi')?.value, 10) || 0
+        khoi: parseInt(document.getElementById('khoi')?.value, 10) || 0,
+        type: document.getElementById('examType')?.value || ''
     };
 }
 
@@ -1920,6 +1938,7 @@ function buildExamHtml(meta, data = currentExamData) {
     put('const ALLOWED_CLASSES = ""; // Template placeholder', `const ALLOWED_CLASSES = ${js(meta.classes.join(','))};`);
     put('const EXAM_ROUND = 1; // Template placeholder', `const EXAM_ROUND = ${meta.round};`);
     put('const EXAM_LIMIT = 0; // Template placeholder', `const EXAM_LIMIT = ${meta.limit};`);
+    put('const EXAM_TYPE = ""; // Template placeholder', `const EXAM_TYPE = ${js(meta.type || '')};`);
     put('const SHUFFLE = false; // Template placeholder', `const SHUFFLE = ${opts.shuffle ? 'true' : 'false'};`);
     put('const STUDENT_LISTS = {}; // Template placeholder', `const STUDENT_LISTS = ${js(opts.studentList ? getStudentListsFor(meta.classes) : {})};`);
     return t;
@@ -1940,7 +1959,7 @@ async function getRoundUsage(meta) {
     }
     const year = EduScores.currentSchoolYear();
     const sameGrade = r => !meta.khoi || new RegExp('^' + meta.khoi + '(?!\\d)').test(String(r.className || '').trim());
-    const same = r => EduScores.normKey(r.subject) === EduScores.normKey(meta.subject) && r.hinhThucBase === `${meta.minutes} Phút` && sameGrade(r);
+    const same = r => EduScores.normKey(r.subject) === EduScores.normKey(meta.subject) && r.hinhThucBase === EduScores.hinhThucBase(meta.type, meta.minutes) && sameGrade(r);
     const all = EduScores.process(sheetRows, { year }).all.filter(r => !r.dup && same(r));
     const used = all.filter(r => r.round === meta.round);
     if (!used.length) return null;
@@ -1955,14 +1974,14 @@ async function getRoundUsage(meta) {
 async function confirmExamRoundNotUsed(meta) {
     const u = await getRoundUsage(meta);
     if (!u) return true;
-    return confirm(`Năm học ${u.year} đã có ${u.used.length} bài nộp cho "${meta.subject}${meta.khoi ? ' khối ' + meta.khoi : ''} – ${meta.minutes} phút – Lần ${meta.round}" (lần nộp gần nhất: ${u.last.dateText}).\n\n` +
+    return confirm(`Năm học ${u.year} đã có ${u.used.length} bài nộp cho "${meta.subject}${meta.khoi ? ' khối ' + meta.khoi : ''}${meta.type ? ' – ' + meta.type : ''} – ${meta.minutes} phút – Lần ${meta.round}" (lần nộp gần nhất: ${u.last.dateText}).\n\n` +
         `• Nếu đây là CÙNG bài kiểm tra (xuất lại, sửa đề...): bấm OK.\n` +
         `• Nếu đây là bài kiểm tra KHÁC: bấm Hủy rồi chọn "Lần kiểm tra" khác` + (u.free <= 6 ? ` (gợi ý: Lần ${u.free})` : '') + `, nếu không điểm 2 bài sẽ bị gộp và lấy điểm cao nhất.`);
 }
 
 function examFileBaseName(meta) {
     const slug = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
-    return `${slug(meta.subject)}${meta.khoi ? '_K' + meta.khoi : ''}_${meta.minutes}phut_Lan${meta.round}`;
+    return `${slug(meta.subject)}${meta.khoi ? '_K' + meta.khoi : ''}${meta.type ? '_' + slug(meta.type) : ''}_${meta.minutes}phut_Lan${meta.round}`;
 }
 
 async function exportHTML() {
@@ -2188,10 +2207,22 @@ async function publishExam() {
     select.innerHTML = GH_SUBJECTS.filter(s => c.repos[s]).map(s => `<option value="${esc(s)}">${esc(s)} — ${esc(c.repos[s])}</option>`).join('');
     select.value = GH_SUBJECTS.includes(meta.subject) && c.repos[meta.subject] ? meta.subject : (select.options[0] ? select.options[0].value : '');
     document.getElementById('pubKhoi').innerHTML = khoiOptionsHtml(meta.khoi || inferKhoi(meta.classes.join(',')));
-    document.getElementById('pubName').value = `${meta.subject}${meta.khoi ? ' khối ' + meta.khoi : ''} ${meta.minutes} phút Lần ${meta.round}`;
+    document.getElementById('pubType').innerHTML = typeOptionsHtml(meta.type, '— không ghi loại —');
+    document.getElementById('pubName').dataset.auto = '1';
+    document.getElementById('pubName').value = bpDefaultName(meta.subject, meta.khoi, meta.type, meta.minutes, meta.round);
     updatePublishPreview();
     document.getElementById('publishFormModal').classList.add('active');
     setTimeout(() => { const i = document.getElementById('pubName'); i.focus(); i.select(); }, 50);
+}
+
+// Đổi Khối / Loại ở hộp thoại đăng 1 đề: tên đề gợi ý tự cập nhật (nếu giáo viên chưa tự sửa tên)
+function pubAutoName() {
+    const nameEl = document.getElementById('pubName');
+    const meta = pendingPublishMeta;
+    if (meta && nameEl.dataset.auto === '1') {
+        nameEl.value = bpDefaultName(meta.subject, document.getElementById('pubKhoi').value, document.getElementById('pubType').value, meta.minutes, meta.round);
+    }
+    updatePublishPreview();
 }
 
 function closePublishForm() { document.getElementById('publishFormModal').classList.remove('active'); }
@@ -2220,6 +2251,8 @@ async function confirmPublish() {
     const bad = khoiMismatch(khoi, meta.classes);
     if (bad.length && !confirm(`Lớp ${bad.join(', ')} không thuộc Khối ${khoi}. Bạn vẫn muốn đăng?`)) return;
     meta.khoi = parseInt(khoi, 10);
+    meta.type = document.getElementById('pubType').value;
+    if (!(await confirmGasSupportsType(!!meta.type))) return;
 
     let html;
     try { html = buildExamHtml(meta); } catch (e) { return alert(e.message); }
@@ -2243,7 +2276,7 @@ async function confirmPublish() {
             ...(sha ? { sha } : {})
         });
         const entry = { path, url, sha: res.content && res.content.sha, repo: `${c.owner}/${repo}`, branch: c.branch,
-            title: `${rawName} (${meta.subject} · Khối ${khoi} · ${meta.minutes} phút · Lần ${meta.round})`, classes: meta.classes.join(', '), time: Date.now() };
+            title: `${rawName} (${meta.subject} · Khối ${khoi}${meta.type ? ' · ' + meta.type : ''} · ${meta.minutes} phút · Lần ${meta.round})`, classes: meta.classes.join(', '), time: Date.now() };
         setPublished([entry, ...getPublished().filter(p => !(p.repo === entry.repo && p.path === entry.path))]);
         renderPublishedList();
         await waitForPages(url);
@@ -2415,13 +2448,14 @@ function openBatchPublish(ids) {
         return `<div class="bp-row" data-exam="${e.id}" data-subject="${esc(e.subject || '')}">
             <div class="bp-title">${esc(e.title || 'Đề không tên')} <span class="bp-meta">${esc(e.subject || '')} · ${e.numQuestions || e.data.length} câu</span></div>
             <div class="bp-grid">
-                <label class="bp-wide">Tên đề<input type="text" class="form-control bp-name" data-auto="1" value="${esc(bpDefaultName(e.subject, khoi, f.minutes, f.round))}" autocomplete="off"></label>
+                <label class="bp-wide">Tên đề<input type="text" class="form-control bp-name" data-auto="1" value="${esc(bpDefaultName(e.subject, khoi, e.type, f.minutes, f.round))}" autocomplete="off"></label>
                 <label class="bp-wide">Kho lưu trữ (môn)<select class="form-control bp-repo"><option value="">— chọn kho —</option>${bpRepoOptions(c, subject)}</select></label>
                 <label>Khối<select class="form-control bp-khoi">${khoiOptionsHtml(khoi)}</select></label>
+                <label>Loại kiểm tra<select class="form-control bp-type">${typeOptionsHtml(e.type || '', '— không ghi loại —')}</select></label>
                 <label>Thời gian<select class="form-control bp-min" data-v="${f.minutes}">${minOpts}</select></label>
                 <label>Lần kiểm tra<select class="form-control bp-round" data-v="${f.round}">${roundOpts}</select></label>
                 <label>Số lần tối đa<select class="form-control bp-limit" data-v="${f.limit}">${limitOpts}</select></label>
-                <label class="bp-full">Lớp áp dụng<input type="text" class="form-control bp-classes" value="${esc(e.grade || '')}" autocomplete="off"></label>
+                <label class="bp-span3">Lớp áp dụng<input type="text" class="form-control bp-classes" value="${esc(e.grade || '')}" autocomplete="off"></label>
             </div>
             <div class="bp-link"></div>
             <div class="bp-status"></div>
@@ -2433,8 +2467,8 @@ function openBatchPublish(ids) {
         row.addEventListener('input', () => bpUpdatePreview(row));
         row.addEventListener('change', ev => {
             const nameEl = row.querySelector('.bp-name');
-            if (nameEl.dataset.auto === '1' && ev.target.matches('.bp-khoi, .bp-min, .bp-round')) {
-                nameEl.value = bpDefaultName(row.dataset.subject, row.querySelector('.bp-khoi').value, row.querySelector('.bp-min').value, row.querySelector('.bp-round').value);
+            if (nameEl.dataset.auto === '1' && ev.target.matches('.bp-khoi, .bp-type, .bp-min, .bp-round')) {
+                nameEl.value = bpDefaultName(row.dataset.subject, row.querySelector('.bp-khoi').value, row.querySelector('.bp-type').value, row.querySelector('.bp-min').value, row.querySelector('.bp-round').value);
             }
             bpUpdatePreview(row);
         });
@@ -2455,8 +2489,8 @@ function closeBatchPublish() {
     renderExamsTable();
 }
 
-function bpDefaultName(subject, khoi, minutes, round) {
-    return `${subject || 'Đề'}${khoi ? ' khối ' + khoi : ''} ${minutes} phút Lần ${round}`;
+function bpDefaultName(subject, khoi, type, minutes, round) {
+    return `${subject || 'Đề'}${khoi ? ' khối ' + khoi : ''}${type ? ' ' + type : ''} ${minutes} phút Lần ${round}`;
 }
 
 function bpSetAllRepo() {
@@ -2531,6 +2565,7 @@ async function bpRun() {
             meta: {
                 subject: (exam.subject || subjectKey).trim(),
                 khoi: parseInt(khoi, 10),
+                type: row.querySelector('.bp-type').value,
                 minutes: parseInt(row.querySelector('.bp-min').value, 10) || 45,
                 round: parseInt(row.querySelector('.bp-round').value, 10) || 1,
                 limit: parseInt(row.querySelector('.bp-limit').value, 10) || 0,
@@ -2547,11 +2582,13 @@ async function bpRun() {
     const lech = items.map(it => ({ it, bad: khoiMismatch(it.meta.khoi, it.meta.classes) })).filter(x => x.bad.length);
     if (lech.length && !confirm('Lớp áp dụng không khớp Khối đã chọn:\n\n' + lech.map(x => `• ${x.it.name}: lớp ${x.bad.join(', ')} không thuộc Khối ${x.it.meta.khoi}`).join('\n') + '\n\nBấm OK để vẫn đăng, Hủy để quay lại sửa.')) return;
 
+    if (!(await confirmGasSupportsType(items.some(it => it.meta.type)))) return;
+
     // Cảnh báo một lần cho các đề trùng lần kiểm tra đã có bài nộp
     const warns = [];
     for (const it of items) {
         const u = await getRoundUsage(it.meta);
-        if (u) warns.push(`• ${it.name}: ${it.meta.subject} ${it.meta.minutes} phút Lần ${it.meta.round} đã có ${u.used.length} bài nộp` + (u.free <= 6 ? ` (gợi ý lần trống: Lần ${u.free})` : ''));
+        if (u) warns.push(`• ${it.name}: ${it.meta.subject}${it.meta.type ? ' ' + it.meta.type : ''} ${it.meta.minutes} phút Lần ${it.meta.round} đã có ${u.used.length} bài nộp` + (u.free <= 6 ? ` (gợi ý lần trống: Lần ${u.free})` : ''));
     }
     if (warns.length && !confirm(`Các đề sau trùng "môn + thời gian + lần kiểm tra" đã có bài nộp trong năm học, điểm sẽ bị gộp và lấy điểm cao nhất:\n\n${warns.join('\n')}\n\nBấm OK nếu là CÙNG bài kiểm tra; Hủy để quay lại đổi "Lần kiểm tra".`)) return;
 
@@ -2570,7 +2607,7 @@ async function bpRun() {
                 continue;
             }
             const entry = { path: r.path, url: r.url, sha: r.sha, repo: `${c.owner}/${it.repo}`, branch: c.branch, examId: it.exam.id, khoi: it.meta.khoi,
-                title: `${it.name} (${it.meta.subject} · Khối ${it.meta.khoi} · ${it.meta.minutes} phút · Lần ${it.meta.round})`, classes: it.meta.classes.join(', '), time: Date.now() };
+                title: `${it.name} (${it.meta.subject} · Khối ${it.meta.khoi}${it.meta.type ? ' · ' + it.meta.type : ''} · ${it.meta.minutes} phút · Lần ${it.meta.round})`, classes: it.meta.classes.join(', '), time: Date.now() };
             setPublished([entry, ...getPublished().filter(p => !(p.repo === entry.repo && p.path === entry.path))]);
             ok++;
             it.row.dataset.done = '1';

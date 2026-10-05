@@ -56,21 +56,43 @@
      *  "15 Phút" (cũ) · "Lần 1 - 15 Phút" (đề mới + Apps Script cũ) · "15 Phút - Lần 1" (Apps Script mới)
      *  "Lần 2 - Tối đa 5 lần - 15 Phút" · "15 Phút - Lần 2 - Tối đa 5 lần"
      */
+    // Loại kiểm tra: phân biệt các bài cùng thời gian làm bài (vd cùng 15 phút: thường xuyên / giữa kỳ)
+    const EXAM_TYPES = ['Thường xuyên', 'Giữa kỳ I', 'Giữa kỳ II', 'Cuối kỳ I', 'Cuối kỳ II', 'Khảo sát', 'Ôn tập'];
+
+    function detectType(v) {
+        const t = String(v == null ? '' : v).toLowerCase();
+        if (/thường\s*xuyên/.test(t)) return 'Thường xuyên';
+        const m = t.match(/(giữa|cuối)\s*kỳ(?:\s+(ii|i|2|1)(?=\s|$|-))?/);
+        if (m) {
+            const name = m[1] === 'giữa' ? 'Giữa kỳ' : 'Cuối kỳ';
+            return m[2] ? `${name} ${m[2] === 'ii' || m[2] === '2' ? 'II' : 'I'}` : name;
+        }
+        if (/khảo\s*sát/.test(t)) return 'Khảo sát';
+        if (/ôn\s*tập/.test(t)) return 'Ôn tập';
+        return ''; // Dữ liệu cũ: không ghi loại
+    }
+
+    // "Giữa kỳ I - 15 Phút" (hoặc "15 Phút" nếu không có loại) — dùng để so sánh/gom nhóm
+    function hinhThucBase(type, minutes) {
+        return `${type ? type + ' - ' : ''}${minutes} Phút`;
+    }
+
     function parseHinhThuc(v) {
         const s = norm(v);
         const mMin = s.match(/(\d+)\s*phút/i);
         const mRound = s.match(/lần\s*(\d+)/i);
         const mLimit = s.match(/tối\s*đa\s*(\d+)/i);
+        const type = detectType(s);
         const minutes = mMin ? parseInt(mMin[1], 10) : null;
         const round = mRound ? parseInt(mRound[1], 10) : 1; // Dữ liệu cũ = Lần 1
         const limit = mLimit ? parseInt(mLimit[1], 10) : 0;  // 0 = không giới hạn
-        const base = minutes != null ? `${minutes} Phút` : (s.replace(/lần\s*\d+|tối\s*đa\s*\d+\s*lần|[-–·]/gi, ' ').trim().replace(/\s+/g, ' ') || 'Không rõ');
-        return { minutes, round, limit, base, label: `${base} - Lần ${round}` };
+        const base = minutes != null ? hinhThucBase(type, minutes) : (type || s.replace(/lần\s*\d+|tối\s*đa\s*\d+\s*lần|[-–·]/gi, ' ').trim().replace(/\s+/g, ' ') || 'Không rõ');
+        return { minutes, round, limit, type, base, label: `${base} - Lần ${round}` };
     }
 
     // Tạo chuỗi hình thức gửi lên Sheet. Đặt số phút ở CUỐI để Apps Script cũ (tự nối " Phút") vẫn ghi đúng.
-    function buildExamTimeParam(minutes, round, limit) {
-        let s = `Lần ${round || 1}`;
+    function buildExamTimeParam(minutes, round, limit, type) {
+        let s = `${type ? type + ' - ' : ''}Lần ${round || 1}`;
         if (limit > 0) s += ` - Tối đa ${limit} lần`;
         return `${s} - ${minutes}`;
     }
@@ -85,7 +107,8 @@
             className: norm(r.className),
             subject: norm(r.subject),
             hinhThuc: ht.label,          // "15 Phút - Lần 1"
-            hinhThucBase: ht.base,       // "15 Phút"
+            hinhThucBase: ht.base,       // "15 Phút" hoặc "Giữa kỳ I - 15 Phút"
+            type: ht.type,
             round: ht.round,
             limit: ht.limit,
             time: t,
@@ -191,7 +214,7 @@
 
     const api = {
         DUP_WINDOW_MS, escapeHtml, parseTime, schoolYearOf, currentSchoolYear, parseScore,
-        parseHinhThuc, buildExamTimeParam, normalizeRow, formatDateTime, attemptKey,
+        parseHinhThuc, buildExamTimeParam, EXAM_TYPES, detectType, hinhThucBase, normalizeRow, formatDateTime, attemptKey,
         process, listSchoolYears, GRADES, gradeOf, naturalCompare, normKey
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;

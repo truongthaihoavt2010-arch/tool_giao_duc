@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Robot - Tạo Đề Thông Minh</title>
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=7">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -816,37 +816,26 @@ function saoLuu() {
                 <div id="ghWebWarning" style="display:none; background:#fff3cd; color:#664d03; border:1px solid #ffe69c; border-radius:8px; padding:12px; font-size:13px; margin-bottom:14px;">
                     <b>⚠️ Bạn đang mở bản web.</b> Vì an toàn, chỉ nhập token GitHub trên phần mềm chạy ở máy tính (mở bằng <b>MO_TOOL_GIAO_DUC.bat</b>): các trang GitHub Pages của cùng một tài khoản dùng chung bộ nhớ trình duyệt.
                 </div>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Mỗi môn có <b>một kho riêng đã tạo sẵn</b> (đã bật GitHub Pages). Khi đăng đề, bạn chỉ cần <b>chọn kho theo môn và đặt tên đề</b> — phần mềm tự tải lên và đưa ra link + mã QR.</p>
                 <details style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
-                    <summary style="cursor:pointer; font-weight:600;">Hướng dẫn cài đặt lần đầu (khoảng 5 phút)</summary>
+                    <summary style="cursor:pointer; font-weight:600;">Hướng dẫn tạo token (làm một lần, khoảng 2 phút)</summary>
                     <ol style="margin: 8px 0 0 18px; line-height: 1.8;">
-                        <li>Vào <b>github.com › New repository</b>, đặt tên (ví dụ <code>de-thi</code>), chọn <b>Public</b>, tích <b>Add a README file</b>, bấm <b>Create repository</b>.</li>
-                        <li>Trong kho vừa tạo: <b>Settings › Pages</b> › Source: <b>Deploy from a branch</b> › Branch: <b>main</b> / <b>(root)</b> › <b>Save</b>.</li>
-                        <li>Tạo token: ảnh đại diện › <b>Settings › Developer settings › Personal access tokens › Fine-grained tokens › Generate new token</b>.
-                            Expiration: 1 năm · Repository access: <b>Only select repositories</b> › chọn kho đề thi · Permissions › Repository permissions › <b>Contents: Read and write</b>. Bấm Generate rồi copy token.</li>
-                        <li>Điền các ô bên dưới rồi bấm <b>Lưu &amp; kiểm tra</b>.</li>
+                        <li>GitHub › ảnh đại diện › <b>Settings › Developer settings › Personal access tokens › Fine-grained tokens › Generate new token</b>.</li>
+                        <li>Expiration: 1 năm · Repository access: <b>Only select repositories</b> › chọn các kho <code>kttx-…</code> (9 kho) · Permissions › Repository permissions › <b>Contents: Read and write</b>.</li>
+                        <li>Bấm <b>Generate token</b>, sao chép token (bắt đầu bằng <code>github_pat_</code>), dán vào ô bên dưới rồi bấm <b>Lưu &amp; kiểm tra</b>.</li>
                     </ol>
-                    <p style="margin-top:8px;">Lưu ý: kho công khai nên ai có link đều xem được đề (kể cả đáp án trong mã trang). Hãy <b>gỡ đề</b> sau khi thi xong. Nên dùng kho riêng cho đề thi, không dùng chung kho mã nguồn phần mềm.</p>
+                    <p style="margin-top:8px;">Lưu ý: kho công khai nên ai có link đều xem được đề (kể cả đáp án trong mã trang). Hãy <b>gỡ đề</b> sau khi thi xong. Không dùng chung token này với kho mã nguồn phần mềm.</p>
                 </details>
-                <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 14px;">
-                    <div class="form-group" style="margin-bottom:0;">
-                        <label>Tài khoản GitHub</label>
-                        <input type="text" id="ghOwner" class="form-control" placeholder="vd: truongthaihoavt2010-arch" autocomplete="off">
-                    </div>
-                    <div class="form-group" style="margin-bottom:0;">
-                        <label>Tên kho đề thi</label>
-                        <input type="text" id="ghRepo" class="form-control" placeholder="vd: de-thi" autocomplete="off">
-                    </div>
-                    <div class="form-group" style="margin-bottom:0;">
-                        <label>Thư mục trong kho</label>
-                        <input type="text" id="ghFolder" class="form-control" placeholder="de" autocomplete="off">
-                    </div>
-                    <div class="form-group" style="margin-bottom:0;">
-                        <label>Nhánh</label>
-                        <input type="text" id="ghBranch" class="form-control" placeholder="main" autocomplete="off">
-                    </div>
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label>Tài khoản GitHub</label>
+                    <input type="text" id="ghOwner" class="form-control" placeholder="vd: truongthaihoavt2010-arch" autocomplete="off">
+                </div>
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label>Kho lưu trữ theo môn</label>
+                    <div id="ghRepoList" class="gh-repo-grid"></div>
                 </div>
                 <div class="form-group" style="margin: 14px 0 0;">
-                    <label>Token (fine-grained, chỉ quyền Contents cho kho đề thi)</label>
+                    <label>Token (fine-grained, chỉ quyền Contents cho các kho đề thi)</label>
                     <input type="password" id="ghToken" class="form-control" placeholder="github_pat_..." autocomplete="off">
                 </div>
                 <div style="display:flex; gap:10px; margin-top: 12px; flex-wrap: wrap;">
@@ -883,6 +872,29 @@ function saoLuu() {
                     <button class="btn-outline" onclick="closeStudentsModal()">Hủy</button>
                     <button class="btn-primary" onclick="saveStudentsList()"><i class="fa-solid fa-floppy-disk"></i> Lưu danh sách</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Đăng đề: chọn kho theo môn + đặt tên -->
+    <div id="publishFormModal" class="modal-overlay">
+        <div class="modal-content" style="width: 480px; max-width: 95%;">
+            <div class="modal-header">
+                <h3><i class="fa-brands fa-github"></i> Đăng đề lên GitHub</h3>
+                <button class="close-btn" onclick="closePublishForm()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="form-group" style="margin-top: 16px;">
+                <label>Kho lưu trữ (theo môn)</label>
+                <select id="pubRepo" class="form-control" onchange="updatePublishPreview()"></select>
+            </div>
+            <div class="form-group">
+                <label>Tên đề</label>
+                <input type="text" id="pubName" class="form-control" placeholder="vd: Tin học 15 phút Lần 1" oninput="updatePublishPreview()" onkeydown="if(event.key==='Enter')confirmPublish()" autocomplete="off">
+                <div id="pubLinkPreview" style="font-size: 12px; color: var(--text-muted); margin-top: 6px; word-break: break-all;"></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top: 16px;">
+                <button class="btn-outline" onclick="closePublishForm()">Hủy</button>
+                <button class="btn-primary" onclick="confirmPublish()"><i class="fa-brands fa-github"></i> Đăng &amp; lấy link</button>
             </div>
         </div>
     </div>
@@ -989,6 +1001,6 @@ function saoLuu() {
 
     <script src="../shared/scores.js?v=1"></script>
     <script src="template_data.js"></script>
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=8"></script>
 </body>
 </html>

@@ -1955,24 +1955,56 @@ window.onload = () => {
 // GitHub Pages cùng tài khoản dùng chung bộ nhớ trình duyệt.
 const isWebVersion = () => /\.github\.io$/i.test(location.hostname);
 
+// Mỗi môn một kho đề riêng (đã tạo sẵn, bật GitHub Pages): chọn kho theo môn rồi chỉ cần đặt tên đề
+const GH_SUBJECTS = ['Toán học', 'Ngữ Văn', 'Tiếng Anh', 'Vật lý', 'Hóa học', 'Sinh học', 'Lịch sử', 'Địa lý', 'Tin học'];
+const GH_DEFAULT_REPOS = {
+    'Toán học': 'kttx-toan', 'Ngữ Văn': 'kttx-nguvan', 'Tiếng Anh': 'kttx-tienganh',
+    'Vật lý': 'kttx-vatly', 'Hóa học': 'kttx-hoahoc', 'Sinh học': 'kttx-sinhhoc',
+    'Lịch sử': 'kttx-lichsu', 'Địa lý': 'kttx-dialy', 'Tin học': 'kttx-tinhoc'
+};
+const GH_DEFAULT_OWNER = 'truongthaihoavt2010-arch';
+
 function getGithubConfig() {
     let c = {};
-    try { c = JSON.parse(lsGet('robotGithub', '{}')); } catch (e) {}
-    return Object.assign({ owner: '', repo: '', branch: 'main', folder: 'de', token: '' }, c);
+    try { c = JSON.parse(lsGet('robotGithub', '{}')) || {}; } catch (e) {}
+    return {
+        owner: c.owner || GH_DEFAULT_OWNER,
+        token: c.token || '',
+        branch: 'main',
+        folder: '',
+        repos: Object.assign({}, GH_DEFAULT_REPOS, c.repos || {})
+    };
 }
 
 function initGithubSettings() {
     const c = getGithubConfig();
-    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-    set('ghOwner', c.owner); set('ghRepo', c.repo); set('ghBranch', c.branch); set('ghFolder', c.folder); set('ghToken', c.token);
+    const owner = document.getElementById('ghOwner');
+    const token = document.getElementById('ghToken');
+    if (owner) owner.value = c.owner;
+    if (token) token.value = c.token;
+    const box = document.getElementById('ghRepoList');
+    if (box) {
+        box.innerHTML = GH_SUBJECTS.map(s => `<div class="gh-repo-row"><label>${esc(s)}</label>
+            <input type="text" class="form-control" data-subject="${esc(s)}" value="${esc(c.repos[s] || '')}" autocomplete="off" spellcheck="false"></div>`).join('');
+    }
     const warn = document.getElementById('ghWebWarning');
     if (warn) warn.style.display = isWebVersion() ? 'block' : 'none';
     renderPublishedList();
 }
 
+function readGithubForm() {
+    const repos = {};
+    document.querySelectorAll('#ghRepoList input[data-subject]').forEach(i => { repos[i.dataset.subject] = i.value.trim(); });
+    return {
+        owner: document.getElementById('ghOwner').value.trim(),
+        token: document.getElementById('ghToken').value.trim(),
+        repos
+    };
+}
+
 function setGhStatus(text, color) {
     const el = document.getElementById('ghStatus');
-    if (el) { el.innerText = text; el.style.color = color || 'var(--c-green)'; }
+    if (el) { el.innerText = text; el.style.color = color || 'var(--c-green)'; el.style.whiteSpace = 'pre-line'; }
 }
 
 async function githubApi(c, method, apiPath, body) {
@@ -2010,32 +2042,33 @@ function ghPagesUrl(c, path) {
 
 async function saveGithubConfig() {
     if (isWebVersion()) return setGhStatus('Không lưu token trên bản web. Hãy dùng phần mềm trên máy tính.', 'red');
-    const c = {
-        owner: document.getElementById('ghOwner').value.trim(),
-        repo: document.getElementById('ghRepo').value.trim(),
-        branch: document.getElementById('ghBranch').value.trim() || 'main',
-        folder: document.getElementById('ghFolder').value.trim().replace(/^\/+|\/+$/g, ''),
-        token: document.getElementById('ghToken').value.trim()
-    };
-    if (!c.owner || !c.repo || !c.token) return setGhStatus('Vui lòng nhập đủ tài khoản, tên kho và token.', 'red');
-    lsSet('robotGithub', JSON.stringify(c));
-    setGhStatus('Đang kiểm tra...', 'var(--text-muted)');
-    try {
-        const repo = await githubApi(c, 'GET', ghRepoPath(c));
-        if (repo.permissions && !repo.permissions.push) throw new Error('Token chỉ có quyền đọc. Cần quyền Contents: Read and write.');
-        const notes = [];
-        if (repo.private) notes.push('⚠️ Kho đang để Riêng tư (Private): GitHub Pages miễn phí chỉ chạy với kho Công khai.');
-        if (repo.full_name.toLowerCase() === 'truongthaihoavt2010-arch/tool_giao_duc') notes.push('⚠️ Đây là kho mã nguồn phần mềm — nên dùng kho riêng cho đề thi.');
-        setGhStatus(`✅ Kết nối được kho ${repo.full_name}.` + (notes.length ? ' ' + notes.join(' ') : ' Nhớ bật GitHub Pages (Settings › Pages).'), notes.length ? 'orange' : 'var(--c-green)');
-    } catch (e) {
-        setGhStatus('❌ ' + e.message, 'red');
+    const f = readGithubForm();
+    if (!f.owner || !f.token) return setGhStatus('Vui lòng nhập tài khoản GitHub và token.', 'red');
+    lsSet('robotGithub', JSON.stringify(f));
+    setGhStatus('Đang kiểm tra các kho...', 'var(--text-muted)');
+    const c = getGithubConfig();
+    const problems = [];
+    let ok = 0;
+    for (const subject of GH_SUBJECTS) {
+        const repoName = c.repos[subject];
+        if (!repoName) { problems.push(`• ${subject}: chưa nhập tên kho`); continue; }
+        try {
+            const repo = await githubApi(Object.assign({}, c, { repo: repoName }), 'GET', ghRepoPath({ owner: c.owner, repo: repoName }));
+            if (repo.permissions && !repo.permissions.push) problems.push(`• ${subject} (${repoName}): token chỉ có quyền đọc, cần Contents: Read and write`);
+            else if (repo.private) problems.push(`• ${subject} (${repoName}): kho đang Riêng tư — GitHub Pages miễn phí chỉ chạy với kho Công khai`);
+            else ok++;
+        } catch (e) {
+            if (e.status === 401) { setGhStatus('❌ ' + e.message, 'red'); return; }
+            problems.push(`• ${subject} (${repoName}): ${e.status === 404 ? 'không tìm thấy kho hoặc token chưa được cấp quyền cho kho này' : e.message}`);
+        }
     }
+    if (!problems.length) setGhStatus(`✅ ${ok}/${GH_SUBJECTS.length} kho sẵn sàng. Có thể đăng đề cho mọi môn.`);
+    else setGhStatus(`${ok}/${GH_SUBJECTS.length} kho sẵn sàng. Cần xử lý:\n${problems.join('\n')}`, ok ? 'orange' : 'red');
 }
 
 function clearGithubToken() {
     const c = getGithubConfig();
-    c.token = '';
-    lsSet('robotGithub', JSON.stringify(c));
+    lsSet('robotGithub', JSON.stringify({ owner: c.owner, token: '', repos: c.repos }));
     document.getElementById('ghToken').value = '';
     setGhStatus('Đã xóa token khỏi máy này.', 'var(--text-muted)');
 }
@@ -2057,40 +2090,88 @@ function randomSuffix(n) {
 function getPublished() { try { return JSON.parse(lsGet('robotPublishedExams', '[]')) || []; } catch (e) { return []; } }
 function setPublished(list) { lsSet('robotPublishedExams', JSON.stringify(list)); }
 
+// Tên đề do giáo viên đặt -> tên file (không dấu, không ký tự lạ)
+function slugFileName(name) {
+    const base = String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+        .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80);
+    return base || 'de_kiem_tra';
+}
+
+let pendingPublishMeta = null;
+
 async function publishExam() {
     if (currentExamData.length === 0) return alert('Chưa có dữ liệu đề thi!');
     if (isWebVersion()) return alert('Đăng đề chỉ dùng được trên phần mềm chạy ở máy tính (mở bằng MO_TOOL_GIAO_DUC.bat).');
     const c = getGithubConfig();
-    if (!c.owner || !c.repo || !c.token) {
-        alert('Chưa cấu hình GitHub. Vào trang "Google Sheets" › mục "Đăng đề lên GitHub" để cài đặt (chỉ làm một lần).');
+    if (!c.owner || !c.token) {
+        alert('Chưa nhập token GitHub. Vào trang "Google Sheets" › mục "Đăng đề lên GitHub" để cài đặt (chỉ làm một lần).');
         closeReviewModal();
         return switchPage('page-settings', document.querySelectorAll('.menu-item')[6]);
     }
     if (!lsGet('robotWebhookUrl').trim() && !confirm('Chưa cấu hình Google Sheets: học sinh làm bài sẽ KHÔNG lưu được điểm. Vẫn đăng đề?')) return;
     const meta = getExamMeta();
     if (!(await confirmExamRoundNotUsed(meta))) return;
+    pendingPublishMeta = meta;
+
+    const select = document.getElementById('pubRepo');
+    select.innerHTML = GH_SUBJECTS.filter(s => c.repos[s]).map(s => `<option value="${esc(s)}">${esc(s)} — ${esc(c.repos[s])}</option>`).join('');
+    select.value = GH_SUBJECTS.includes(meta.subject) && c.repos[meta.subject] ? meta.subject : (select.options[0] ? select.options[0].value : '');
+    document.getElementById('pubName').value = `${meta.subject} ${meta.minutes} phút Lần ${meta.round}`;
+    updatePublishPreview();
+    document.getElementById('publishFormModal').classList.add('active');
+    setTimeout(() => { const i = document.getElementById('pubName'); i.focus(); i.select(); }, 50);
+}
+
+function closePublishForm() { document.getElementById('publishFormModal').classList.remove('active'); }
+
+function updatePublishPreview() {
+    const c = getGithubConfig();
+    const subject = document.getElementById('pubRepo').value;
+    const repo = c.repos[subject];
+    const el = document.getElementById('pubLinkPreview');
+    if (!repo) { el.innerText = ''; return; }
+    const file = slugFileName(document.getElementById('pubName').value) + '.html';
+    el.innerText = 'Link sẽ là: ' + ghPagesUrl({ owner: c.owner, repo }, ghFilePath(c, file));
+}
+
+async function confirmPublish() {
+    const c = getGithubConfig();
+    const meta = pendingPublishMeta;
+    const subject = document.getElementById('pubRepo').value;
+    const repo = c.repos[subject];
+    const rawName = document.getElementById('pubName').value.trim();
+    if (!meta) return;
+    if (!repo) return alert('Chưa chọn kho lưu trữ.');
+    if (!rawName) return alert('Vui lòng đặt tên đề.');
 
     let html;
     try { html = buildExamHtml(meta); } catch (e) { return alert(e.message); }
-    const name = `${examFileBaseName(meta)}_${randomSuffix(5)}.html`; // đoạn ngẫu nhiên: khó đoán link
-    const path = ghFilePath(c, name);
-    const url = ghPagesUrl(c, path);
+    closePublishForm();
+
+    const cr = Object.assign({}, c, { repo });
+    const file = slugFileName(rawName) + '.html';
+    const path = ghFilePath(c, file);
+    const url = ghPagesUrl(cr, path);
+    const apiPath = `${ghRepoPath(cr)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
 
     openPublishModal('⏳ Đang tải đề lên GitHub...', '', 'var(--text-muted)');
     try {
-        const res = await githubApi(c, 'PUT', `${ghRepoPath(c)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`, {
-            message: `Đăng đề ${meta.subject} - ${meta.minutes} phút - Lần ${meta.round}`,
+        let sha;
+        try { sha = (await githubApi(cr, 'GET', `${apiPath}?ref=${encodeURIComponent(c.branch)}`)).sha; } catch (e) { if (e.status !== 404) throw e; }
+        if (sha && !confirm(`Kho "${repo}" đã có đề tên "${file}".\nBấm OK để thay bằng đề mới (link giữ nguyên), Hủy để đặt tên khác.`)) { closePublishModal(); return; }
+        const res = await githubApi(cr, 'PUT', apiPath, {
+            message: `Đăng đề ${rawName}`,
             content: utf8ToBase64(html),
-            branch: c.branch
+            branch: c.branch,
+            ...(sha ? { sha } : {})
         });
-        const list = getPublished();
-        list.unshift({ path, url, sha: res.content && res.content.sha, repo: `${c.owner}/${c.repo}`, branch: c.branch,
-            title: `${meta.subject} · ${meta.minutes} phút · Lần ${meta.round}`, classes: meta.classes.join(', '), time: Date.now() });
-        setPublished(list);
+        const entry = { path, url, sha: res.content && res.content.sha, repo: `${c.owner}/${repo}`, branch: c.branch,
+            title: `${rawName} (${meta.subject} · ${meta.minutes} phút · Lần ${meta.round})`, classes: meta.classes.join(', '), time: Date.now() };
+        setPublished([entry, ...getPublished().filter(p => !(p.repo === entry.repo && p.path === entry.path))]);
         renderPublishedList();
         await waitForPages(url);
     } catch (e) {
-        openPublishModal('❌ ' + e.message, '', 'red');
+        openPublishModal('❌ ' + (e.status === 404 ? `Không tìm thấy kho "${repo}" hoặc token chưa được cấp quyền cho kho này. Kiểm tra ở trang "Google Sheets" › Đăng đề lên GitHub.` : e.message), '', 'red');
     }
 }
 

@@ -352,3 +352,10 @@ body {
 .modal-header h2, .modal-header h3 { margin: 0; font-size: 18px; }
 .close-btn { background: none; border: 0; font-size: 20px; line-height: 1; cursor: pointer; color: var(--text-muted); padding: 4px 8px; border-radius: 6px; }
 .close-btn:hover { background: #f1f2f6; color: #2d3436; }
+
+/* Kho GitHub theo môn */
+.gh-repo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.gh-repo-row { display: flex; align-items: center; gap: 10px; }
+.gh-repo-row label { width: 86px; flex-shrink: 0; margin: 0; font-size: 13px; font-weight: 600; }
+.gh-repo-row .form-control { flex: 1; min-width: 0; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+@media (max-width: 760px) { .gh-repo-grid { grid-template-columns: 1fr; } }

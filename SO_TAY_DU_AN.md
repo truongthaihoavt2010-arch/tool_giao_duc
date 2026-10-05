@@ -1,6 +1,6 @@
 # 📖 SỔ TAY DỰ ÁN: TOOL GIÁO DỤC (AI Robot)
 
-> Tác giả: **Trương Thái Hòa** · Cập nhật: **01/10/2026**
+> Tác giả: **Trương Thái Hòa** · Cập nhật: **01/10/2026** (sau khi hoàn thiện hồ sơ SKKN)
 > Kho mã nguồn: https://github.com/truongthaihoavt2010-arch/tool_giao_duc
 > Bản web: https://truongthaihoavt2010-arch.github.io/tool_giao_duc/
 
@@ -44,6 +44,9 @@ TOOL GIAO DUC/
 ├── index.html                  Trang chủ: cấu hình DeepSeek, mở 2 ứng dụng (iframe)
 ├── MO_TOOL_GIAO_DUC.bat        Mở phần mềm bằng Chrome/Edge
 ├── SO_TAY_DU_AN.md             Sổ tay này
+├── KE_HOACH_VIET_DU_AN.md      Kế hoạch đã thực hiện: vấn đề → phân tích → quyết định → kiểm chứng
+├── SKKN_TOOL_GIAO_DUC.docx     Báo cáo Sáng kiến kinh nghiệm (18 trang, 15 hình, theo thể thức Nghị định 30)
+├── SKKN_anh_minh_chung/        17 ảnh chụp phần mềm dùng làm minh chứng (dữ liệu mẫu, tên học sinh hư cấu)
 ├── shared/
 │   └── scores.js               Bộ xử lý điểm DÙNG CHUNG cho 2 ứng dụng
 ├── robot-tao-de/
@@ -91,7 +94,7 @@ TOOL GIAO DUC/
    - Lần đầu: **Triển khai › Tùy chọn triển khai mới › Ứng dụng web** · Thực thi: *Tôi* · Quyền truy cập: *Bất kỳ ai* → copy **URL ứng dụng web**.
    - Dán URL vào app → **Lưu & kiểm tra kết nối** → phải thấy *"✅ Apps Script phiên bản 3 · đã bảo vệ bằng mã đọc"*.
 3. **Danh sách học sinh:** trang **Quản lý lớp học** → thêm lớp → **Danh sách** → dán cột họ tên từ Excel (tự bỏ số thứ tự, tên trùng).
-4. **(Tùy chọn) Đăng đề qua GitHub:** tạo kho riêng (Public, bật Pages) + token *fine-grained* chỉ quyền **Contents: Read and write** cho kho đó → điền ở trang Google Sheets → **Lưu & kiểm tra**. Chỉ nhập token trên phần mềm chạy ở máy tính, không nhập trên bản web.
+4. **(Tùy chọn) Đăng đề qua GitHub:** 9 kho theo môn đã tạo sẵn (xem mục 3.7). Chỉ cần tạo **một token** *fine-grained* (Only select repositories → chọn 9 kho `kttx-…`, quyền **Contents: Read and write**) → dán ở trang Google Sheets › Đăng đề lên GitHub → **Lưu & kiểm tra** (phải thấy "9/9 kho sẵn sàng"). Chỉ nhập token trên phần mềm chạy ở máy tính, không nhập trên bản web.
 
 ### 3.2. Cập nhật mã Apps Script (khi phần mềm có bản mới)
 - Sao chép mã mới → dán vào Apps Script → **Lưu** → **Triển khai › Quản lý các lần triển khai › chọn lần triển khai đang dùng › Sửa (bút chì) › Phiên bản: Phiên bản mới › Triển khai**.
@@ -104,10 +107,19 @@ TOOL GIAO DUC/
   - `Câu N:` nội dung · `A.` `B.` `C.` `D.` · `Đáp án đúng: A` (hoặc `Đúng`/`Sai`, hoặc số cho câu tính toán)
   - `Gợi ý: từ1, từ2, …` **chỉ dành cho câu điền khuyết** (danh sách từ gợi ý), đặt trước dòng Đáp án đúng.
 - Chọn **Thời gian làm bài**, **Lần kiểm tra (1–6)**, **Số lần làm tối đa** (mặc định không giới hạn).
+- **Khi DeepSeek hết tiền** vẫn soạn được đề: (1) **Đề của tôi › Tải HTML** để xuất lại đề đã có; (2) **tạo từ tài liệu** (không dùng AI); (3) nhập key **Groq** (có gói miễn phí) hoặc OpenRouter ở mục "AI dự phòng" — chất lượng mô hình miễn phí thấp hơn nên cần duyệt kỹ, phần này chưa thử với key thật.
+
+### 3.7. Kho GitHub theo môn (đăng đề: chọn kho + đặt tên)
+- Mỗi môn **một kho công khai đã bật GitHub Pages** (tài khoản `truongthaihoavt2010-arch`): `kttx-toan`, `kttx-nguvan`, `kttx-tienganh`, `kttx-vatly`, `kttx-hoahoc`, `kttx-sinhhoc`, `kttx-lichsu`, `kttx-dialy`, `kttx-tinhoc` (hai kho `kttx-lichsu`, `kttx-dialy` có từ trước, 7 kho còn lại tạo ngày 05/10/2026). Kho `kttxdialy` (không có chữ `-`) là bản cũ không dùng.
+- **Cách đăng:** Xem trước đề › **Đăng lên GitHub & lấy link** › hộp thoại tự chọn kho theo môn của đề (đổi được) › **đặt tên đề** › Đăng & lấy link. Tên đề thành tên file (bỏ dấu, `_`); link dạng `https://truongthaihoavt2010-arch.github.io/kttx-tinhoc/Tin_hoc_15_phut_Lan_1.html`; đề được đặt ở thư mục gốc kho, nhánh `main`.
+- Trùng tên đề trong kho → hỏi **ghi đè** (link giữ nguyên). Danh sách "Đề đã đăng" có nút **Gỡ đề**.
+- Tên kho theo môn sửa được ở trang cài đặt (mặc định như trên); cấu hình lưu `robotGithub` = `{owner, token, repos}`.
+- Đã kiểm thử thật (05/10/2026): lưu cấu hình 9/9 kho → đăng đề thử vào `kttx-tinhoc` → link mở được, có mã QR → đăng lại cùng tên (hỏi ghi đè) → gỡ đề, kho trở lại như cũ.
 
 ### 3.4. Xuất / phát đề cho học sinh
 Trong cửa sổ **Xem trước đề**:
 - Tùy chọn: **Xáo trộn câu hỏi & đáp án**, **Học sinh chọn tên từ danh sách lớp**.
+- **Cách chọn tên:** học sinh chọn **lớp** trước, ô họ tên chỉ hiện danh sách **đúng lớp đó** (có dòng "nhập tay" dự phòng). Điều kiện: lớp đã có danh sách ở trang Quản lý lớp học và **tên lớp ở ô "Lớp áp dụng" ghi giống hệt** tên lớp đã khai báo. Đề xuất trước khi có danh sách (vd 2 đề Khảo sát Tin 6, 7) vẫn là ô tự gõ tên.
 - **Tải xuống HTML** (gửi file) hoặc **Đăng lên GitHub & lấy link** (khuyên dùng: mở được trên iPhone, Android, máy tính; có mã QR).
 - Nếu "môn + thời gian + lần" đã có bài nộp trong năm học → app cảnh báo và gợi ý lần còn trống.
 - Học sinh mở link bằng trình duyệt (trong Zalo: **⋯ › Mở bằng trình duyệt**). iPhone không làm được bằng file .html tải về.
@@ -235,6 +247,17 @@ Robot Tạo Đề ──xuất / đăng GitHub──▶ Đề thi (.html / link)
 - `b9dc2ca` **Kiểm tra toàn bộ tính năng (không nâng cấp):** sửa lỗi đọc file mẫu Word (dòng tiêu đề "Phần 3 … "Gợi ý:" …" bị hiểu nhầm); sửa ngày trong tên file sao lưu; thêm `tests/test_parse_local.js`.
 - Chốt: **bản dùng thử thi SKKN — đóng băng tính năng.**
 
+### Giai đoạn 7 — Kho GitHub theo môn (05/10/2026)
+- Theo yêu cầu của tác giả: tạo sẵn kho cho từng môn học (7 kho mới `kttx-*`, bật Pages; giữ 2 kho cũ), phần mềm **chọn kho theo môn + chỉ đặt tên đề**, đăng xong ra link + mã QR ngay. Đây là thay đổi tính năng theo yêu cầu trực tiếp của tác giả (ngoại lệ so với quyết định đóng băng).
+- Thay cấu hình GitHub cũ (một kho + thư mục + nhánh) bằng **tài khoản + token + 9 kho theo môn**; thêm hộp thoại đăng đề; kiểm tra 9 kho khi lưu cấu hình.
+
+### Giai đoạn 6 — Hoàn thiện hồ sơ SKKN (01/10/2026) · `8ba053a`, `47c90b0`
+- Viết lại `SO_TAY_DU_AN.md` đầy đủ; viết `KE_HOACH_VIET_DU_AN.md` (14 kế hoạch đã thực hiện, 12 quyết định thiết kế, bài học).
+- **Báo cáo SKKN mới** `SKKN_TOOL_GIAO_DUC.docx` (18 trang): giữ nguyên hệ thống tiêu đề/tiểu mục và căn cứ pháp lý của bản `SKKN2027_Antigravity_HoanMy_ND30.docx`; thay nội dung bằng dự án hiện tại; **15 hình chụp từ phần mềm** + bảng số liệu thực tế (555 lượt gửi, 148 bài trùng bị loại, 407 lần làm hợp lệ, 282 lượt kiểm tra, ĐTB 7,79, Đạt trở lên 90,1%).
+- **Ảnh minh chứng** chụp bằng Chrome headless với **dữ liệu mẫu** (tên học sinh hư cấu, phân bố điểm khớp số liệu thật) để bảo vệ dữ liệu cá nhân (Nghị định 13/2023/NĐ-CP). Bỏ khỏi báo cáo các nội dung bản cũ mô tả nhưng phần mềm không có (email phụ huynh, biểu đồ Radar, khóa bài khi chuyển tab).
+- Tác giả chủ động xóa 4 file Word SKKN cũ (vẫn còn trong lịch sử Git).
+- Xác nhận cách chọn tên theo lớp đã có sẵn; không thay đổi tính năng (đóng băng).
+
 ---
 
 ## 9. 🚑 SỰ CỐ ĐÃ GẶP & CÁCH XỬ LÝ
@@ -257,24 +280,30 @@ Robot Tạo Đề ──xuất / đăng GitHub──▶ Đề thi (.html / link)
 | App báo "Apps Script CŨ" | Chưa triển khai phiên bản mới | Làm đúng mục 3.2 |
 | Tab mới trống ở đầu Sheet | Bấm "Chạy" hàm `doPost` | Không bấm Chạy doPost; dùng `kiemTraCaiDat` |
 | Đọc đề Word sai dạng câu | Dòng tiêu đề chứa từ khóa | Đã sửa (01/10/2026) |
+| Tạo đề bằng AI báo lỗi / không ra đề | DeepSeek hết tiền | Dùng Đề của tôi › Tải HTML, tạo từ tài liệu, hoặc nhập key Groq miễn phí (mục 3.3) |
+| Học sinh vẫn phải tự gõ tên | Lớp chưa có danh sách, tên lớp không khớp, hoặc dùng đề xuất cũ | Nhập danh sách ở Quản lý lớp học; ghi "Lớp áp dụng" đúng tên lớp; xuất lại đề (mục 3.4) |
 
 ---
 
 ## 10. 📌 TRẠNG THÁI HIỆN TẠI & VIỆC CẦN LÀM (01/10/2026)
 
-- **Mã nguồn:** đã push đến `b9dc2ca` (+ sổ tay này). Toàn bộ test đạt: 26 · 24 · 4 · 76.
+- **Mã nguồn:** đã push đến `47c90b0`. Toàn bộ test đạt: 26 · 24 · 4 · 76.
+- **Hồ sơ SKKN:** `SKKN_TOOL_GIAO_DUC.docx` + `SKKN_anh_minh_chung/` + `KE_HOACH_VIET_DU_AN.md` đã hoàn thành và đưa lên GitHub. **Kho đang công khai** — ảnh/báo cáo chỉ chứa dữ liệu mẫu, nhưng cân nhắc trước khi chia sẻ rộng.
+- **DeepSeek hết tiền** (tác giả chưa soạn đề mới) → chưa kiểm tra thực tế phần tạo đề bằng AI và chưa xuất đề mới có danh sách học sinh.
 - **Apps Script:** giáo viên đã triển khai v3 và kiểm tra kết nối. URL cũ `…AKfycbywuNpk…` **vẫn chạy bản cũ** (không đòi mã) — có thể v3 đã được triển khai thành URL mới. Các đề đã phát (kể cả `de-thi/`) vẫn gửi điểm về URL cũ: **điểm không mất** nhưng URL cũ **chưa được bảo vệ**.
 - **Google Sheet** "ROBOT LUU DIEM" thuộc tài khoản Google "L" (không phải `truongthaihoavt2010@gmail.com`).
 
 **Việc giáo viên cần làm:**
 - [ ] Cập nhật **lần triển khai cũ** lên v3: Quản lý các lần triển khai › chọn lần triển khai cũ › Sửa › Phiên bản mới.
 - [ ] Chạy `saoLuu`, rồi `xoaBaiNopTrung`.
-- [ ] Nhập danh sách học sinh các lớp.
-- [ ] (Tùy chọn) Tạo kho GitHub riêng cho đề thi + token fine-grained.
+- [ ] Nạp tiền DeepSeek (hoặc nhập key Groq miễn phí) để tạo đề bằng AI.
+- [ ] Nhập danh sách học sinh các lớp, rồi **xuất lại** đề (Khảo sát Tin 6, 7 đang là bản chưa có danh sách chọn tên).
+- [ ] Rà soát SKKN trước khi nộp: tên trường/đơn vị, bảng so sánh thời gian (là ước tính), số liệu mới nhất từ Quản Lý Điểm (mục 4.1.3).
+- [ ] Tạo **một token** fine-grained cho 9 kho `kttx-…` (Contents: Read and write) và dán vào trang Google Sheets › Đăng đề lên GitHub (mục 3.7).
 - [ ] Kiểm tra token GitHub cũ (`ghp_…`) đã bị thu hồi.
 - [ ] Đổi mật khẩu admin đang lưu dạng chữ trong Sheet `HOSOHS20262027` (tab TaiKhoan) — không thuộc dự án này nhưng đã phát hiện.
 
-**Chưa kiểm tra thực tế:** tạo đề bằng AI (cần DeepSeek key), đăng đề GitHub thật, làm bài trên iPhone thật.
+**Chưa kiểm tra thực tế:** tạo đề bằng AI (DeepSeek hết tiền), AI dự phòng Groq/OpenRouter với key thật, đăng đề GitHub thật, làm bài trên iPhone thật.
 **Lỗi cũ vô hại, chưa sửa:** `hideLoading is not defined` ở trang chủ khi vừa mở (không ảnh hưởng người dùng).
 
 ---
@@ -285,4 +314,4 @@ Robot Tạo Đề ──xuất / đăng GitHub──▶ Đề thi (.html / link)
 - **Phân tích từng câu hỏi:** câu sai nhiều, đáp án nhiễu (đề cần gửi kèm lựa chọn của học sinh).
 - **Xuất điểm theo mẫu sổ điểm điện tử** (vnEdu / SMAS).
 - Flashcard ôn tập; bài tập cá nhân hóa theo phổ điểm.
-- Hồ sơ SKKN theo Nghị định 30 (song song với bản dùng thử).
+- Cập nhật hồ sơ SKKN (số liệu mới, thêm minh chứng từ bài kiểm tra thật) khi nâng lên bản Pro.

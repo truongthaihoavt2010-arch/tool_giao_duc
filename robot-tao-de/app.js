@@ -29,6 +29,7 @@ window.addEventListener('message', (event) => {
 });
 
 let currentExamData = [];
+let currentExamId = null; // id của đề (trong "Đề của tôi") đang xem trước / vừa tạo
 let diffChartInstance = null;
 let lineChartInstance = null;
 let extractedFileText = "";
@@ -73,8 +74,9 @@ function saveExamToHistory(subject, grade, numQuestions, title, questionsData, s
     stats.totalQuestions += parseInt(numQuestions);
     
     // Lưu Đề
+    const newId = Date.now();
     stats.recentExams.unshift({
-        id: Date.now(),
+        id: newId,
         title: title || `Đề kiểm tra ${subject} - ${grade}`,
         subject, grade, numQuestions,
         timestamp: new Date().getTime(),
@@ -96,6 +98,7 @@ function saveExamToHistory(subject, grade, numQuestions, title, questionsData, s
 
     localStorage.setItem("robotStats", JSON.stringify(stats));
     updateStatsUI();
+    return newId;
 }
 
 function updateStatsUI() {
@@ -128,6 +131,7 @@ function updateStatsUI() {
 // Render Bảng Đề của tôi
 function renderExamsTable() {
     try {
+        linkPublishedToExams();
         const stats = getStats();
         const tbody = document.getElementById('tableExamsBody');
         tbody.innerHTML = '';
@@ -155,6 +159,7 @@ async function downloadExam(id) {
     const exam = stats.recentExams.find(e => e.id === id);
     if(!exam || !exam.data) return alert("Không tìm thấy dữ liệu gốc của đề này (Có thể đề cũ chưa lưu nội dung).");
     currentExamData = exam.data;
+    currentExamId = exam.id;
     // Tạm thời gán Môn học trên form giống môn học của đề để file xuất ra đúng tên
     document.getElementById('subject').value = exam.subject || "DeThi";
     exportHTML();
@@ -1443,11 +1448,12 @@ async function startGeneration(isAutoMode = false) {
 
         if (Array.isArray(data) && data.length > 0) {
             currentExamData = data;
+            currentExamId = null;
             const subject = document.getElementById('subject').value;
             const grade = document.getElementById('grade').value;
             const title = topic || `Đề ${subject} ${grade}`;
             
-            saveExamToHistory(subject, grade, data.length, title, data, {
+            currentExamId = saveExamToHistory(subject, grade, data.length, title, data, {
                 minutes: parseInt(document.getElementById('examTime')?.value, 10) || 45,
                 round: parseInt(document.getElementById('examRound')?.value, 10) || 1,
                 limit: parseInt(document.getElementById('examLimit')?.value, 10) || 0,
@@ -2275,7 +2281,7 @@ async function confirmPublish() {
             branch: c.branch,
             ...(sha ? { sha } : {})
         });
-        const entry = { path, url, sha: res.content && res.content.sha, repo: `${c.owner}/${repo}`, branch: c.branch,
+        const entry = { path, url, sha: res.content && res.content.sha, repo: `${c.owner}/${repo}`, branch: c.branch, examId: currentExamId, khoi: meta.khoi,
             title: `${rawName} (${meta.subject} · Khối ${khoi}${meta.type ? ' · ' + meta.type : ''} · ${meta.minutes} phút · Lần ${meta.round})`, classes: meta.classes.join(', '), time: Date.now() };
         setPublished([entry, ...getPublished().filter(p => !(p.repo === entry.repo && p.path === entry.path))]);
         renderPublishedList();
@@ -2395,6 +2401,25 @@ async function unpublishExam(i) {
 // ======= ĐĂNG MỘT HOẶC NHIỀU ĐỀ ĐÃ TẠO (trang "Đề của tôi") =======
 function parseClasses(str) {
     return String(str || '').split(/[,;\n]/).map(c => c.trim().replace(/^lớp\s+/i, '')).filter(Boolean);
+}
+
+// Các đề đăng trước bản này chưa lưu id đề: ghép lại theo lớp + loại + thời gian + lần + khối, lấy đề tạo gần nhất trước lúc đăng
+function linkPublishedToExams() {
+    const list = getPublished();
+    const exams = getStats().recentExams || [];
+    let changed = false;
+    list.forEach(p => {
+        if (p.examId) return;
+        const cls = parseClasses(p.classes).join(',');
+        const title = String(p.title || '');
+        const cands = exams.filter(e => e.timestamp <= p.time && parseClasses(e.grade).join(',') === cls
+            && (!e.minutes || title.includes(`${e.minutes} phút`)) && (!e.round || title.includes(`Lần ${e.round}`))
+            && (!e.type || title.includes(e.type)) && (!e.khoi || title.includes(`Khối ${e.khoi}`)));
+        if (!cands.length) return;
+        p.examId = cands.reduce((a, b) => (b.timestamp > a.timestamp ? b : a)).id;
+        changed = true;
+    });
+    if (changed) setPublished(list);
 }
 
 // Dấu "Đã đăng" cạnh tên đề (đề đã được đăng từ trang Đề của tôi)

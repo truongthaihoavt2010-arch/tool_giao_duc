@@ -32,6 +32,12 @@ function kiemTraCaiDat() {
 var READ_KEY = ""; // MÃ ĐỌC DỮ LIỆU — chỉ ai có mã này mới xem được điểm (để trống = ai cũng xem được)
 var SCRIPT_VERSION = 4;
 
+// ĐỢT KHẢO SÁT đầu năm (Tin học 6, 7 · 15 phút): đề xuất bằng mẫu cũ không ghi loại, vẫn còn học sinh nộp qua link cũ.
+// true: các bài nộp đó tự được ghi là "Khảo sát - 15 Phút - Lần 1" (thống nhất với dữ liệu cũ đã đổi nhãn).
+// Chỉ áp dụng cho đề KHÔNG gửi "loại" và KHÔNG có giới hạn số lần; đề tạo bằng phần mềm mới luôn gửi loại nên không bị ảnh hưởng.
+var LEGACY_KHAO_SAT = true;
+var KHAO_SAT_LABEL = "Khảo sát - 15 Phút - Lần 1";
+
 var HEADERS = ["STT", "HỌ TÊN", "MÔN", "HÌNH THỨC KT", "LỚP", "THỜI GIAN NỘP", "ĐIỂM SỐ", "MÃ BÀI NỘP"];
 var TZ = "GMT+7";
 var DUP_WINDOW_MS = 2 * 60 * 1000; // Bài giống hệt nộp lại trong 2 phút = bài trùng
@@ -70,6 +76,17 @@ function detectType_(v) {
   return "";
 }
 
+// Bài của đợt khảo sát: môn Tin học, lớp khối 6 hoặc 7
+function isLegacySurvey_(subject, className) {
+  return norm_(subject) === "tin học" && /^\s*[67]/.test(String(className == null ? "" : className));
+}
+
+// Hai dạng nhãn cũ của đợt khảo sát (đề xuất bằng mẫu cũ, Apps Script cũ tự nối " Phút")
+function isLegacySurveyLabel_(label) {
+  var t = norm_(label);
+  return t === "15 phút" || t === "lần 1 - 15 phút";
+}
+
 // Chuẩn hóa hình thức: "Giữa kỳ I - 15 Phút - Lần 1" (+ " - Tối đa 5 lần"); không có loại: "15 Phút - Lần 1"
 function hinhThuc_(data) {
   var raw = String(data.examTime == null ? "" : data.examTime);
@@ -82,6 +99,11 @@ function hinhThuc_(data) {
   if (isNaN(round) && (m = raw.match(/lần\s*(\d+)/i))) round = parseInt(m[1], 10);
   if (isNaN(limit) && (m = raw.match(/tối\s*đa\s*(\d+)/i))) limit = parseInt(m[1], 10);
   if (isNaN(minutes)) return safeText_(raw) + " Phút"; // Không nhận ra: giữ như cũ
+  // Đề khảo sát xuất bằng mẫu cũ (không gửi "loại", không giới hạn số lần) -> ghi là Khảo sát
+  if (!type && LEGACY_KHAO_SAT && data.type === undefined && minutes === 15 && (isNaN(round) || round === 1) &&
+      !(limit > 0) && isLegacySurvey_(data.subject, data.className)) {
+    type = "Khảo sát";
+  }
   var s = (type ? type + " - " : "") + minutes + " Phút - Lần " + (isNaN(round) ? 1 : round);
   if (limit > 0) s += " - Tối đa " + limit + " lần";
   return s;
@@ -313,6 +335,77 @@ function xoaBaiNopTrung() {
     });
     CacheService.getScriptCache().removeAll(listYears_().concat(["all"]).map(function (y) { return cachePrefix_(y) + "n"; }));
     Logger.log("Đã xóa " + total + " bài nộp trùng.");
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * ĐỔI NHÃN ĐỢT KHẢO SÁT (dữ liệu cũ): các dòng Tin học khối 6, 7 có hình thức "15 Phút" hoặc "Lần 1 - 15 Phút"
+ * (không có loại) được đổi thành "Khảo sát - 15 Phút - Lần 1". Dòng của đề đang làm (có "Tối đa N lần",
+ * có loại...) KHÔNG bị đổi.
+ *  - xemTruocNhanKhaoSat : chỉ đếm và báo cáo, KHÔNG ghi gì (nên chạy trước).
+ *  - doiNhanKhaoSat      : tự sao lưu Google Sheet rồi mới đổi; nếu sao lưu lỗi thì dừng, không đổi gì.
+ * Chạy lại nhiều lần vẫn an toàn (không còn dòng nào cần đổi thì không làm gì).
+ */
+function xemTruocNhanKhaoSat() { return doiNhanKhaoSat_(true); }
+function doiNhanKhaoSat() { return doiNhanKhaoSat_(false); }
+
+// Quét mọi tab dữ liệu: trả về các dòng sẽ đổi + số dòng cùng nhãn nhưng KHÔNG thuộc Tin học 6, 7 (giữ nguyên)
+function quetNhanKhaoSat_() {
+  var plan = [], total = 0, skipped = 0;
+  dataSheets_().forEach(function (sheet) {
+    var last = sheet.getLastRow();
+    if (last < 2) return;
+    var rows = sheet.getRange(2, 1, last - 1, 7).getValues();
+    var hits = [];
+    for (var i = 0; i < rows.length; i++) {
+      if (!isLegacySurveyLabel_(rows[i][3])) continue;
+      if (isLegacySurvey_(rows[i][2], rows[i][4])) hits.push(i); else skipped++;
+    }
+    total += hits.length;
+    plan.push({ sheet: sheet, hits: hits, last: last, rows: last - 1 });
+  });
+  return { plan: plan, total: total, skipped: skipped };
+}
+
+function doiNhanKhaoSat_(dryRun) {
+  var scan = quetNhanKhaoSat_();
+  scan.plan.forEach(function (p) {
+    Logger.log("Tab \"" + p.sheet.getName() + "\": " + p.hits.length + " dòng sẽ đổi / " + p.rows + " dòng");
+  });
+  if (scan.skipped) Logger.log("Giữ nguyên " + scan.skipped + " dòng cùng nhãn nhưng không phải Tin học khối 6, 7.");
+  if (dryRun) {
+    Logger.log("XEM TRƯỚC (chưa ghi gì): " + scan.total + " dòng sẽ đổi thành \"" + KHAO_SAT_LABEL + "\". Chạy doiNhanKhaoSat để thực hiện.");
+    return scan.total;
+  }
+  if (!scan.total) { Logger.log("Không có dòng nào cần đổi."); return 0; }
+
+  // Sao lưu TRƯỚC (ngoài khóa để không làm học sinh phải chờ khi nộp bài); lỗi thì dừng, không đổi gì
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  try {
+    var copy = ss.copy("Sao lưu trước khi đổi nhãn khảo sát - " + ss.getName() + " - " + Utilities.formatDate(new Date(), TZ, "dd-MM-yyyy HH'h'mm"));
+    Logger.log("Đã sao lưu: " + copy.getUrl());
+  } catch (err) {
+    Logger.log("KHÔNG sao lưu được (" + err.message + ") — DỪNG, chưa đổi gì. Chạy saoLuu để cấp quyền rồi thử lại.");
+    return 0;
+  }
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    scan = quetNhanKhaoSat_(); // quét lại trong khóa: có bài mới nộp trong lúc sao lưu cũng được xử lý
+    scan.plan.forEach(function (p) {
+      if (!p.hits.length) return;
+      var rng = p.sheet.getRange(2, 4, p.last - 1, 1); // chỉ cột HÌNH THỨC KT
+      var col = rng.getValues();
+      p.hits.forEach(function (i) { col[i][0] = KHAO_SAT_LABEL; });
+      rng.setValues(col);
+    });
+    SpreadsheetApp.flush();
+    CacheService.getScriptCache().removeAll(listYears_().concat(["all"]).map(function (y) { return cachePrefix_(y) + "n"; }));
+    Logger.log("ĐÃ ĐỔI " + scan.total + " dòng thành \"" + KHAO_SAT_LABEL + "\".");
+    return scan.total;
   } finally {
     lock.releaseLock();
   }

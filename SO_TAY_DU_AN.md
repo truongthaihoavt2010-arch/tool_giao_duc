@@ -137,6 +137,8 @@ Trong cửa sổ **Xem trước đề**:
 | `kiemTraCaiDat` | Báo phiên bản, số bài nộp từng tab, năm học — an toàn |
 | `saoLuu` | Tạo bản sao toàn bộ Google Sheet trong Drive (nên chạy cuối học kỳ) |
 | `xoaBaiNopTrung` | Xóa bài bị ghi trùng (giống hệt, cách nhau < 2 phút) — chạy `saoLuu` trước |
+| `xemTruocNhanKhaoSat` | Chỉ đếm các dòng Tin học khối 6, 7 nhãn `15 Phút` / `Lần 1 - 15 Phút` sẽ đổi — không ghi gì |
+| `doiNhanKhaoSat` | Tự sao lưu rồi đổi các dòng đó thành `Khảo sát - 15 Phút - Lần 1`; không đụng đề có "Tối đa N lần" hay có loại; chạy lại an toàn |
 | ⚠️ `doPost`, `doGet` | **Không bấm Chạy** — chỉ dùng khi học sinh nộp bài / app đọc dữ liệu |
 
 ---
@@ -194,6 +196,8 @@ Robot Tạo Đề ──xuất / đăng GitHub──▶ Đề thi (.html / link)
 - **Mã đọc dữ liệu (`READ_KEY`):** app tự sinh, điền sẵn vào mã. `doGet` phải kèm `key` đúng; `doPost` không cần (học sinh nộp bài).
 - **API:** `doGet?key=&year=2026-2027` (mặc định năm hiện tại) · `year=all` · `action=info` (phiên bản, năm học, đã bảo vệ chưa).
 - **An toàn dữ liệu:** `LockService` (nhiều học sinh nộp cùng lúc), chống trùng theo `submissionId` và theo nội dung (2 phút), chặn chèn công thức (`=`, `+`, `-`, `@`), `doPost` thiếu họ tên thì không ghi.
+- **Đợt khảo sát (Tin học 6, 7 · 15 phút):** đề xuất bằng mẫu cũ (không gửi loại, không giới hạn số lần) được Apps Script **tự ghi là `Khảo sát - 15 Phút - Lần 1`** (hằng `LEGACY_KHAO_SAT`, đặt `false` để tắt); dữ liệu cũ đổi bằng `xemTruocNhanKhaoSat` rồi `doiNhanKhaoSat`. Kiểm thử bằng chính các file đề thật (khảo sát cũ, đề hiện tại, Địa lý).
+- **Hai lần triển khai (hai URL) cùng một Sheet:** mỗi URL chạy một *phiên bản* cố định của mã. Dán mã mới + Lưu KHÔNG đổi URL nào; phải vào *Quản lý các lần triển khai › Sửa đúng lần triển khai đó › Phiên bản mới*. Khi một đề đang có học sinh làm, chỉ nâng cấp URL của đề đã xong, giữ nguyên URL của đề đang làm để nhãn không bị tách đôi giữa chừng.
 - **Tốc độ:** `CacheService` theo năm học (5 phút, xóa khi có bài mới), chỉ đọc 7 cột. Google thường phản hồi 3–20 giây, có lúc treo → app thử lại 3 lần (chờ 30/45/60 giây).
 
 ---

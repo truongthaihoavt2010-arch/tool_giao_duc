@@ -27,6 +27,7 @@ function makeSheet(name, rows) {
             return {
                 getValue: () => (sh.rows[r - 1] || [])[c - 1] ?? '',
                 setValue: v => { sh.rows[r - 1][c - 1] = v; },
+                setValues: vals => { vals.forEach((row, i) => row.forEach((v, j) => { sh.rows[r - 1 + i][c - 1 + j] = v; })); },
                 setNumberFormat() { return this; }, setFontWeight() { return this; }, setBackground() { return this; },
                 getValues: () => sh.rows.slice(r - 1, r - 1 + nr).map(x => { const y = x.slice(c - 1, c - 1 + nc); while (y.length < nc) y.push(''); return y; }),
                 createTextFinder: txt => ({ matchEntireCell: () => ({ findNext: () => sh.rows.slice(r - 1, r - 1 + nr).some(x => String(x[c - 1]) === txt) ? {} : null }) }),
@@ -35,7 +36,7 @@ function makeSheet(name, rows) {
     };
 }
 
-function load(readKey, sheets, nowMs) {
+function load(readKey, sheets, nowMs, tweak) {
     const RealDate = Date;
     class FakeDate extends RealDate {
         constructor(...a) { if (a.length) super(...a); else super(nowMs); }
@@ -66,8 +67,9 @@ function load(readKey, sheets, nowMs) {
         }) },
         Logger: { log: m => logs.push(m) },
     };
-    const code = SRC.replace('var READ_KEY = "";', `var READ_KEY = ${JSON.stringify(readKey)};`);
-    const api = new Function(...Object.keys(ctx), code + '; return {doPost, doGet, xoaBaiNopTrung, saoLuu, kiemTraCaiDat};')(...Object.values(ctx));
+    let code = SRC.replace('var READ_KEY = "";', `var READ_KEY = ${JSON.stringify(readKey)};`);
+    if (tweak) code = tweak(code);
+    const api = new Function(...Object.keys(ctx), code + '; return {doPost, doGet, xoaBaiNopTrung, saoLuu, kiemTraCaiDat, doiNhanKhaoSat, xemTruocNhanKhaoSat};')(...Object.values(ctx));
     return { api, ss, logs };
 }
 
@@ -93,7 +95,7 @@ check('Thông tin script', get({ key: 'ma-bi-mat', action: 'info' }), { status: 
 // ---------- Ghi điểm vào tab năm học ----------
 check('Đề cũ (examTime=15)', post({ name: 'An', className: '6A1', subject: 'Tin học', examTime: '15', score: '7.50' }).status, 'success');
 check('Tự tạo tab 2026-2027 ở CUỐI (tab cũ giữ vị trí đầu)', ss.getSheets().map(s => s.name), ['Trang tính1', 'Ghi chú', '2026-2027']);
-check('Hình thức đề cũ -> "15 Phút - Lần 1"', ss.getSheetByName('2026-2027').rows[1][3], '15 Phút - Lần 1');
+check('Đề khảo sát cũ (Tin học 6, examTime=15) -> ghi là Khảo sát', ss.getSheetByName('2026-2027').rows[1][3], 'Khảo sát - 15 Phút - Lần 1');
 post({ name: 'Bình', className: '6A1', subject: 'Tin học', examTime: 'Lần 2 - Tối đa 5 lần - 15', score: '8', submissionId: 'x1' });
 check('Hình thức đề mới có giới hạn', ss.getSheetByName('2026-2027').rows[2][3], '15 Phút - Lần 2 - Tối đa 5 lần');
 post({ name: 'Chi', className: '6A2', subject: 'Tin học', examTime: '45', round: '3', minutes: '45', score: '9' });
@@ -155,10 +157,75 @@ check('Sao lưu tạo bản sao', /Đã sao lưu: https:\/\/docs\.google\.com\/c
     pt({ name: 'C', className: '6A1', subject: 'Tin học', examTime: 'Lần 1 - 15', minutes: '15', round: '1', type: '<script>alert(1)</script>', score: '6' });
     check('Loại lạ bị bỏ qua (chống chèn chữ)', last(), '15 Phút - Lần 1');
     pt({ name: 'D', className: '6A1', subject: 'Tin học', examTime: 'Lần 1 - 15', minutes: '15', round: '1', score: '5' });
-    check('Đề cũ không gửi loại: như trước', last(), '15 Phút - Lần 1');
+    check('Đề cũ không gửi loại (Tin học 6, 15 phút) -> Khảo sát', last(), 'Khảo sát - 15 Phút - Lần 1');
+    pt({ name: 'D2', className: '9A1', subject: 'Toán học', examTime: 'Lần 1 - 15', minutes: '15', round: '1', score: '5' });
+    check('Đề cũ không gửi loại (môn/khối khác): như trước', last(), '15 Phút - Lần 1');
     const r1 = pt({ name: 'E', className: '6A1', subject: 'Tin học', examTime: 'Giữa kỳ I - Lần 1 - 15', minutes: '15', round: '1', type: 'Giữa kỳ I', score: '9' });
     const r2 = pt({ name: 'E', className: '6A1', subject: 'Tin học', examTime: 'Thường xuyên - Lần 1 - 15', minutes: '15', round: '1', type: 'Thường xuyên', score: '9' });
     check('Cùng tên, điểm, 15 phút nhưng khác loại: không bị coi là bài trùng', [r1.duplicate, r2.duplicate], [undefined, undefined]);
+}
+
+// ---------- Đợt KHẢO SÁT: nhận bài từ mọi loại file đề + đổi nhãn dữ liệu cũ ----------
+{
+    const mk = (tweak) => { const sh = makeSheet('Trang tính1', [HEAD7]); const t = load('k', [sh], NOW, tweak); return { t, sh, ss: t.ss, post: p => JSON.parse(t.api.doPost({ parameter: p }).t), lastLabel: () => t.ss.getSheetByName('2026-2027').rows.slice(-1)[0][3] }; };
+    const m = mk();
+    const base = { name: 'HS', subject: 'Tin học', className: '7A1', score: '8' };
+    let n = 0; const next = o => Object.assign({}, base, { name: 'HS' + (++n), submissionId: 'id' + n }, o);
+    const label = o => { const r = m.post(next(o)); return [r.status, m.lastLabel()]; };
+
+    check('Nộp bài: đề mẫu cũ (chỉ có examTime=15) -> Khảo sát', label({ examTime: '15' }), ['success', 'Khảo sát - 15 Phút - Lần 1']);
+    check('Nộp bài: đề khảo sát xuất lại (có minutes/round, không có type)', label({ examTime: 'Lần 1 - 15', minutes: '15', round: '1', limit: '0' }), ['success', 'Khảo sát - 15 Phút - Lần 1']);
+    check('Nộp bài: đề hiện tại có loại + giới hạn -> giữ nguyên loại', label({ examTime: 'Thường xuyên - Lần 1 - Tối đa 2 lần - 15', minutes: '15', round: '1', limit: '2', type: 'Thường xuyên' }), ['success', 'Thường xuyên - 15 Phút - Lần 1 - Tối đa 2 lần']);
+    check('Nộp bài: đề không loại có giới hạn 2 lần -> KHÔNG đổi', label({ examTime: 'Lần 1 - Tối đa 2 lần - 15', minutes: '15', round: '1', limit: '2' }), ['success', '15 Phút - Lần 1 - Tối đa 2 lần']);
+    check('Nộp bài: khối 8 -> KHÔNG đổi', label({ examTime: '15', className: '8A1' }), ['success', '15 Phút - Lần 1']);
+    check('Nộp bài: môn khác -> KHÔNG đổi', label({ examTime: '15', subject: 'Toán học' }), ['success', '15 Phút - Lần 1']);
+    check('Nộp bài: 30 phút -> KHÔNG đổi', label({ examTime: '30', minutes: '30' }), ['success', '30 Phút - Lần 1']);
+    check('Nộp bài: có gửi type rỗng (đề mới không loại) -> KHÔNG đổi', label({ examTime: 'Lần 1 - 15', minutes: '15', round: '1', type: '' }), ['success', '15 Phút - Lần 1']);
+    check('Nộp bài: thiếu môn và lớp vẫn ghi được', (() => { const r = m.post({ name: 'KhongMon', examTime: '15', score: '5', submissionId: 'z1' }); return [r.status, m.lastLabel()]; })(), ['success', '15 Phút - Lần 1']);
+    const dupA = m.post(next({ examTime: '15', score: '9', name: 'Trung', submissionId: '' }));
+    const dupB = m.post(next({ examTime: '15', score: '9', name: 'Trung', submissionId: '' }));
+    check('Nộp bài khảo sát gửi lại trong 2 phút vẫn chống trùng', [dupA.status, dupB.duplicate], ['success', true]);
+    const off = mk(c => c.replace('var LEGACY_KHAO_SAT = true;', 'var LEGACY_KHAO_SAT = false;'));
+    check('Tắt LEGACY_KHAO_SAT -> không đổi nhãn nhưng vẫn ghi bài', (() => { const r = off.post(Object.assign({}, base, { examTime: '15', submissionId: 'q1' })); return [r.status, off.lastLabel()]; })(), ['success', '15 Phút - Lần 1']);
+}
+{
+    const D = (i, label, subject, cls, h) => [i, 'HS' + i, subject, label, cls, new Date(2026, 8, 28, h, 0), 7];
+    const mkSheets = () => [
+        makeSheet('Trang tính1', [HEAD7, D(1, '15 Phút', 'Tin học', '6A1', 8), D(2, 'Lần 1 - 15 Phút', 'Tin học', '7A2', 9), D(3, '15 Phút', 'Toán học', '6A1', 10)]),
+        makeSheet('2026-2027', [HEAD7.concat(['MÃ BÀI NỘP']), D(1, '15 Phút', 'Tin học', '6A3', 8), D(2, ' lần 1 - 15 PHÚT ', 'Tin học', '7A1', 9),
+            D(3, '15 Phút - Lần 1 - Tối đa 2 lần', 'Tin học', '7A1', 10), D(4, '30 Phút - Lần 1 - Tối đa 2 lần', 'Tin học', '6A1', 11),
+            D(5, '15 Phút', 'Tin học', '8A1', 12), D(6, '10 Phút - Lần 1 - Tối đa 3 lần', 'Lịch sử', '7A1', 13), D(7, 'Thường xuyên - 15 Phút - Lần 1', 'Tin học', '7A1', 14)])
+    ];
+    const cols = sheets => sheets.map(s => s.rows.slice(1).map(r => r[3]));
+    const before = cols(mkSheets());
+
+    // Xem trước: không ghi gì
+    const s1 = mkSheets(); const t = load('k', s1, NOW); let copies = 0; t.ss.copy = () => { copies++; return { getUrl: () => 'u' }; };
+    const total = t.api.xemTruocNhanKhaoSat();
+    check('Xem trước: đếm đúng (4 dòng), không ghi, không sao lưu', [total, JSON.stringify(cols(s1)) === JSON.stringify(before), copies], [4, true, 0]);
+    check('Xem trước: nhật ký nói rõ số dòng giữ nguyên', t.logs.some(l => /Giữ nguyên 2 dòng/.test(l)), true);
+
+    // Đổi thật
+    t.api.doiNhanKhaoSat();
+    const after = cols(s1);
+    const KS = 'Khảo sát - 15 Phút - Lần 1';
+    check('Đổi nhãn: 4 dòng khảo sát Tin 6, 7 (cả 2 tab) thành Khảo sát', [after[0][0], after[0][1], after[1][0], after[1][1]], [KS, KS, KS, KS]);
+    check('Đổi nhãn: đề hiện tại / Toán / khối 8 / Lịch sử / có loại KHÔNG đổi', [after[0][2], after[1][2], after[1][3], after[1][4], after[1][5], after[1][6]], [before[0][2], before[1][2], before[1][3], before[1][4], before[1][5], before[1][6]]);
+    check('Đổi nhãn: đã sao lưu đúng 1 lần', copies, 1);
+    check('Đổi nhãn: chỉ đổi cột HÌNH THỨC KT (tên, điểm, ngày giữ nguyên)', [s1[1].rows[1][1], s1[1].rows[1][6], s1[1].rows[1][5] instanceof Date], ['HS1', 7, true]);
+
+    // Chạy lại: không làm gì, không sao lưu thêm
+    t.api.doiNhanKhaoSat();
+    check('Chạy lại: không đổi thêm, không sao lưu thêm', [JSON.stringify(cols(s1)) === JSON.stringify(after), copies], [true, 1]);
+
+    // Sao lưu lỗi -> dừng, không đổi gì
+    const s2 = mkSheets(); const t2 = load('k', s2, NOW); t2.ss.copy = () => { throw new Error('Không có quyền Drive'); };
+    t2.api.doiNhanKhaoSat();
+    check('Sao lưu lỗi -> dừng, dữ liệu giữ nguyên', JSON.stringify(cols(s2)) === JSON.stringify(before), true);
+
+    // Sau khi đổi, ứng dụng đọc được bình thường
+    const rows = JSON.parse(t.api.doGet({ parameter: { key: 'k', year: 'all' } }).t);
+    check('Sau khi đổi: doGet vẫn trả đủ dữ liệu, có nhãn Khảo sát', [rows.length, rows.filter(r => r.examTime === KS).length], [10, 4]);
 }
 
 console.log(`\n📋 KẾT QUẢ: ${pass}/${pass + fail} PASS, ${fail} FAIL`);
